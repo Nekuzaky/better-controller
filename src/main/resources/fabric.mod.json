@@ -3,10 +3,11 @@
   "id": "bettercontroller",
   "version": "${version}",
   "name": "BetterController",
-  "description": "Client-side gamepad support for Minecraft Java. Analog look + movement, full GUI navigation, creative double-tap fly, virtual keyboard for chat.",
+  "description": "Play Minecraft Java with any gamepad. Analog look and movement, full GUI navigation, creative double-tap fly, and a virtual keyboard for chat - in a deliberately small, client-side mod.",
   "authors": [
     "Nekuzaky"
   ],
+  "icon": "assets/bettercontroller/icon.png",
   "contact": {
     "homepage": "https://github.com/Nekuzaky/BetterController",
     "sources": "https://github.com/Nekuzaky/BetterController",
