@@ -146,11 +146,17 @@ for the full schema with comments.
 
 ## Architecture
 
+Two clocks. Buttons, movement and menus are tick-paced (20 Hz, `ClientTickEvents`);
+the camera is frame-paced (`WorldRenderEvents.START_MAIN`), so the right stick is
+sampled every rendered frame instead of once per tick.
+
 ```
 ControllerPoller
      │  ControllerSnapshot
      ▼
 InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
+     │
+     ├──► updateLook()               per frame: camera delta only
      │
      ├──► MinecraftInputApplier      keybindings + analog vector
      │
@@ -167,6 +173,8 @@ InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
 ### Design constraints (NASA Power of Ten, adapted to Java)
 
 - **All functions stay under 60 lines.**
+- **The camera never depends on the HUD.** Look runs on the world render pass,
+  so hiding the HUD (`F1`) does not freeze it.
 - **Zero allocation in the steady-state tick loop.** `GameplayInputFrame` is
   a single mutable instance, `input.movementVector` is mutated in place, and
   `input.playerInput` is left to `KeyboardInput.tick` so Minecraft's native

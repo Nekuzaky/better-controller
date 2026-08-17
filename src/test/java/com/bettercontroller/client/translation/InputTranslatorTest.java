@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class InputTranslatorTest {
+    /** One client tick, the frame delta the look pipeline is tuned against. */
+    private static final float TICK_SECONDS = 0.05f;
+
     private InputTranslator translator;
     private ControllerSnapshot snapshot;
     private ControllerConfig config;
@@ -23,6 +26,14 @@ class InputTranslatorTest {
         layout = config.resolveLayout();
     }
 
+    private GameplayInputFrame look(InputTranslator target, float deltaSeconds) {
+        return target.updateLook(snapshot, config, layout, target.emptyFrame(), deltaSeconds);
+    }
+
+    private GameplayInputFrame look() {
+        return look(translator, TICK_SECONDS);
+    }
+
     @Test
     void defaultSnapshotProducesNoMovementOrLook() {
         GameplayInputFrame frame = translator.translate(snapshot, config, layout);
@@ -31,8 +42,10 @@ class InputTranslatorTest {
         assertFalse(frame.moveBackward());
         assertFalse(frame.moveLeft());
         assertFalse(frame.moveRight());
-        assertEquals(0.0f, frame.lookDeltaX(), 0.001f);
-        assertEquals(0.0f, frame.lookDeltaY(), 0.001f);
+
+        GameplayInputFrame lookFrame = look();
+        assertEquals(0.0f, lookFrame.lookDeltaX(), 0.001f);
+        assertEquals(0.0f, lookFrame.lookDeltaY(), 0.001f);
     }
 
     @Test
@@ -72,9 +85,7 @@ class InputTranslatorTest {
         config.cameraSmoothing = false;
         snapshot.simulateAxis(ControllerAxis.RIGHT_X, 0.04f);
 
-        GameplayInputFrame frame = translator.translate(snapshot, config, layout);
-
-        assertEquals(0.0f, frame.lookDeltaX(), 0.001f);
+        assertEquals(0.0f, look().lookDeltaX(), 0.001f);
     }
 
     @Test
@@ -85,9 +96,19 @@ class InputTranslatorTest {
         config.lookSensitivityX = 1.0f;
         snapshot.simulateAxis(ControllerAxis.RIGHT_X, 0.50f);
 
+        assertTrue(look().lookDeltaX() > 0.0f);
+    }
+
+    @Test
+    void tickTranslationLeavesLookToTheFramePath() {
+        config.lookDeadzone = 0.0f;
+        config.cameraSmoothing = false;
+        config.lookSensitivityX = 1.0f;
+        snapshot.simulateAxis(ControllerAxis.RIGHT_X, 0.90f);
+
         GameplayInputFrame frame = translator.translate(snapshot, config, layout);
 
-        assertTrue(frame.lookDeltaX() > 0.0f);
+        assertEquals(0.0f, frame.lookDeltaX(), 0.001f, "translate() must not sample the camera");
     }
 
     @Test
@@ -98,14 +119,47 @@ class InputTranslatorTest {
         config.lookSensitivityY = 1.0f;
         snapshot.simulateAxis(ControllerAxis.RIGHT_Y, 0.5f);
 
-        GameplayInputFrame normal = translator.translate(snapshot, config, layout);
-        translator.resetState();
+        GameplayInputFrame normal = look();
+        double normalDeltaY = normal.lookDeltaY();
 
         config.invertLookY = true;
-        InputTranslator invertedTranslator = new InputTranslator();
-        GameplayInputFrame inverted = invertedTranslator.translate(snapshot, config, layout);
+        GameplayInputFrame inverted = look(new InputTranslator(), TICK_SECONDS);
 
-        assertEquals(-normal.lookDeltaY(), inverted.lookDeltaY(), 0.001f);
+        assertEquals(-normalDeltaY, inverted.lookDeltaY(), 0.001f);
+    }
+
+    @Test
+    void smoothingConvergesTheSameAtAnyFrameRate() {
+        config.lookDeadzone = 0.0f;
+        config.lookAntiDeadzone = 0.0f;
+        config.cameraSmoothing = true;
+        config.cameraSmoothingStrength = 0.35f;
+        config.lookSensitivityX = 1.0f;
+        snapshot.simulateAxis(ControllerAxis.RIGHT_X, 0.80f);
+
+        InputTranslator slow = new InputTranslator();
+        double slowDelta = 0.0D;
+        for (int i = 0; i < 10; i++) {
+            slowDelta = look(slow, TICK_SECONDS).lookDeltaX();
+        }
+
+        InputTranslator fast = new InputTranslator();
+        double fastDelta = 0.0D;
+        for (int i = 0; i < 100; i++) {
+            fastDelta = look(fast, TICK_SECONDS / 10.0f).lookDeltaX();
+        }
+
+        assertEquals(slowDelta, fastDelta, 0.01D,
+            "same elapsed time should reach the same smoothed value at 20 fps and 200 fps");
+    }
+
+    @Test
+    void nullLayoutZeroesLookInsteadOfThrowing() {
+        snapshot.simulateAxis(ControllerAxis.RIGHT_X, 0.80f);
+
+        GameplayInputFrame frame = translator.updateLook(snapshot, config, null, translator.emptyFrame(), TICK_SECONDS);
+
+        assertEquals(0.0f, frame.lookDeltaX(), 0.001f);
     }
 
     @Test
@@ -202,14 +256,12 @@ class InputTranslatorTest {
         snapshot.simulateAxis(ControllerAxis.RIGHT_X, 0.5f);
 
         config.lookResponseCurve = "linear";
-        GameplayInputFrame linear = translator.translate(snapshot, config, layout);
-        translator.resetState();
+        double linearDeltaX = look().lookDeltaX();
 
         config.lookResponseCurve = "exponential_strong";
-        InputTranslator expTranslator = new InputTranslator();
-        GameplayInputFrame exponential = expTranslator.translate(snapshot, config, layout);
+        GameplayInputFrame exponential = look(new InputTranslator(), TICK_SECONDS);
 
-        assertTrue(exponential.lookDeltaX() < linear.lookDeltaX(),
+        assertTrue(exponential.lookDeltaX() < linearDeltaX,
             "exponential curve should produce smaller output at mid-range stick");
     }
 }

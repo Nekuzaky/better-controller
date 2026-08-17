@@ -55,6 +55,22 @@ public final class ControllerPoller {
         return snapshot;
     }
 
+    /**
+     * Re-reads the analog axes of the already-detected controller. Cheap enough to run every
+     * rendered frame: one GLFW call, no device enumeration, no name/GUID lookup, no allocation.
+     * Returns the same reused snapshot, untouched when no controller is connected.
+     */
+    public ControllerSnapshot refreshAxes() {
+        if (activeJoystickId == -1 || !snapshot.isConnected()) {
+            return snapshot;
+        }
+        if (!GLFW.glfwGetGamepadState(activeJoystickId, state)) {
+            return snapshot;
+        }
+        snapshot.refreshAxes(state);
+        return snapshot;
+    }
+
     public ControllerType activeControllerType() {
         return activeControllerType;
     }

@@ -4,6 +4,34 @@ All notable changes to BetterController are documented in this file. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Camera look is now sampled once per rendered frame instead of once per client
+  tick. The right stick used to be read at 20 Hz and the value stretched across
+  render frames, adding up to 50 ms of camera latency; it is now read at frame
+  rate, which mainly shows on fast flicks.
+- Camera smoothing is frame-rate independent. Smoothing strengths are still
+  expressed per client tick, and rescaled to the actual frame delta, so a 144 fps
+  client no longer smooths seven times faster than a 30 fps one.
+- The look clock uses `System.nanoTime` and clamps the frame delta to 1 ms
+  instead of 4 ms, so the camera no longer speeds up above ~250 fps.
+
+### Fixed
+- Camera look froze while the HUD was hidden (`F1`). The camera was driven from a
+  HUD element, which vanilla skips when the HUD is off; it now runs on the world
+  render pass. HUD hints and the debug overlay stay on the HUD element.
+
+### Internal
+- `InputTranslator.translate` no longer produces look; the frame-paced
+  `InputTranslator.updateLook` does. Callers that need the camera value must use
+  the latter.
+- `ControllerPoller.refreshAxes` re-reads only the analog axes of the already
+  detected controller (one GLFW call, no device enumeration, no allocation),
+  which is what the per-frame path uses.
+- `ControllerSnapshot` caches the `values()` arrays of the button / axis enums
+  instead of cloning them on every poll.
+
 ## [0.1.0] - Initial public release
 
 First clean release. The mod's scope is intentionally limited to *playing

@@ -18,8 +18,11 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 
 public final class ControllerRuntime {
-    private static final long LOOK_DELTA_MIN_MS = 4L;
-    private static final long LOOK_DELTA_MAX_MS = 75L;
+    private static final long NANOS_PER_MS = 1_000_000L;
+    private static final long LOOK_DELTA_MIN_NANOS = NANOS_PER_MS;
+    private static final long LOOK_DELTA_MAX_NANOS = 75L * NANOS_PER_MS;
+    private static final long LOOK_DELTA_DEFAULT_NANOS = 16L * NANOS_PER_MS;
+    private static final double LOOK_REFERENCE_SECONDS = 1.0D / 30.0D;
     private static final long STATUS_CONNECTED_MS = 3000L;
     private static final long STATUS_DISCONNECTED_MS = 3200L;
     private static final long STATUS_PROFILE_SWITCH_MS = 2400L;
@@ -42,7 +45,7 @@ public final class ControllerRuntime {
     private ControllerConfig.ResolvedLayout activeLayout;
     private ControllerType activeControllerType = ControllerType.NONE;
     private GameplayInputFrame latestFrame;
-    private long lastRenderLookUpdateMs;
+    private long lastRenderLookUpdateNanos;
     private boolean wasControllerConnected;
     private int previousJoystickId = -1;
     private ControllerType previousControllerType = ControllerType.NONE;
@@ -218,26 +221,21 @@ public final class ControllerRuntime {
         latestFrame = frame;
     }
 
+    /**
+     * Camera path, run once per rendered frame. The look axes are re-sampled here rather than in
+     * {@link #tick} so the stick is read at frame rate instead of at the 20 Hz client tick.
+     */
     public void onRenderFrame(MinecraftClient client) {
-        if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
-            resetRenderLookClock();
-            return;
-        }
-        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
-            resetRenderLookClock();
-            return;
-        }
-        if (client.currentScreen != null || client.player == null || client.world == null) {
+        if (!isLookActive(client)) {
             resetRenderLookClock();
             return;
         }
 
-        long now = System.currentTimeMillis();
-        long deltaMs = lastRenderLookUpdateMs == 0L ? 16L : now - lastRenderLookUpdateMs;
-        deltaMs = Math.max(LOOK_DELTA_MIN_MS, Math.min(deltaMs, LOOK_DELTA_MAX_MS));
-        lastRenderLookUpdateMs = now;
+        float deltaSeconds = advanceRenderLookClock();
+        latestSnapshot = controllerPoller.refreshAxes();
+        inputTranslator.updateLook(latestSnapshot, latestConfig, activeLayout, latestFrame, deltaSeconds);
 
-        double baseScale = deltaMs / 33.333D;
+        double baseScale = deltaSeconds / LOOK_REFERENCE_SECONDS;
         double speedMultiplier = latestConfig.lookSpeedMultiplier;
         double stickMagnitude = Math.max(
             Math.abs(latestFrame.processedLookX()),
@@ -252,8 +250,31 @@ public final class ControllerRuntime {
         );
     }
 
+    private boolean isLookActive(MinecraftClient client) {
+        if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
+            return false;
+        }
+        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
+            return false;
+        }
+        if (activeLayout == null) {
+            return false;
+        }
+        return client.currentScreen == null && client.player != null && client.world != null;
+    }
+
+    private float advanceRenderLookClock() {
+        long now = System.nanoTime();
+        long deltaNanos = lastRenderLookUpdateNanos == 0L
+            ? LOOK_DELTA_DEFAULT_NANOS
+            : now - lastRenderLookUpdateNanos;
+        deltaNanos = Math.max(LOOK_DELTA_MIN_NANOS, Math.min(deltaNanos, LOOK_DELTA_MAX_NANOS));
+        lastRenderLookUpdateNanos = now;
+        return (float) (deltaNanos / 1_000_000_000.0D);
+    }
+
     private void resetRenderLookClock() {
-        lastRenderLookUpdateMs = 0L;
+        lastRenderLookUpdateNanos = 0L;
     }
 
     private static double clamp(double value, double min, double max) {

@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Locale;
 
 public final class InputTranslator {
+    /** Smoothing strengths are expressed per client tick (50 ms) and rescaled to the frame delta. */
+    private static final float SMOOTHING_REFERENCE_SECONDS = 0.05F;
+
     private static final GameplayAction[] HOTBAR_ACTIONS = {
         GameplayAction.HOTBAR_1, GameplayAction.HOTBAR_2, GameplayAction.HOTBAR_3,
         GameplayAction.HOTBAR_4, GameplayAction.HOTBAR_5, GameplayAction.HOTBAR_6,
@@ -26,6 +29,11 @@ public final class InputTranslator {
         return reusableFrame;
     }
 
+    /**
+     * Translates everything that is tick-paced: movement, holds, taps, hotbar. Look is deliberately
+     * excluded - the camera is driven per rendered frame through {@link #updateLook}, so sampling it
+     * here would both stale the stick to 20 Hz and advance the smoothing state twice.
+     */
     public GameplayInputFrame translate(
         ControllerSnapshot snapshot,
         ControllerConfig config,
@@ -37,11 +45,34 @@ public final class InputTranslator {
 
         reusableFrame.clear();
         translateMovement(snapshot, config, layout, reusableFrame);
-        translateLook(snapshot, config, layout, reusableFrame);
         translateHolds(snapshot, config, layout, reusableFrame);
         translateTaps(snapshot, config, layout, reusableFrame);
         translateHotbar(snapshot, config, layout, reusableFrame);
         return reusableFrame;
+    }
+
+    /**
+     * Samples the look axes and writes the resulting delta into {@code frame}. Called once per
+     * rendered frame; {@code deltaSeconds} is the elapsed frame time, used to keep camera smoothing
+     * identical whether the game runs at 30 or 240 fps.
+     */
+    public GameplayInputFrame updateLook(
+        ControllerSnapshot snapshot,
+        ControllerConfig config,
+        ControllerConfig.ResolvedLayout layout,
+        GameplayInputFrame frame,
+        float deltaSeconds
+    ) {
+        if (frame == null) {
+            return null;
+        }
+        if (snapshot == null || config == null || layout == null) {
+            frame.setLook(0.0D, 0.0D, 0.0F, 0.0F);
+            return frame;
+        }
+
+        translateLook(snapshot, config, layout, frame, deltaSeconds);
+        return frame;
     }
 
     public boolean isActionPressed(
@@ -92,7 +123,8 @@ public final class InputTranslator {
         ControllerSnapshot snapshot,
         ControllerConfig config,
         ControllerConfig.ResolvedLayout layout,
-        GameplayInputFrame frame
+        GameplayInputFrame frame,
+        float deltaSeconds
     ) {
         float lookX = applyLookDeadzone(readAxis(snapshot, layout.axisToken("look_x")), config.lookDeadzone, config.lookAntiDeadzone);
         float lookY = applyLookDeadzone(readAxis(snapshot, layout.axisToken("look_y")), config.lookDeadzone, config.lookAntiDeadzone);
@@ -109,6 +141,7 @@ public final class InputTranslator {
 
         if (config.cameraSmoothing) {
             float smoothing = resolveAdaptiveSmoothing(config.cameraSmoothingStrength, lookX, lookY);
+            smoothing = scaleSmoothingToFrame(smoothing, deltaSeconds);
             smoothedLookX += (lookX - smoothedLookX) * smoothing;
             smoothedLookY += (lookY - smoothedLookY) * smoothing;
         } else {
@@ -291,6 +324,21 @@ public final class InputTranslator {
         }
         float responsivenessScale = 1.0F - ((magnitude - 0.50F) / 0.50F) * 0.55F;
         return clamp(base * responsivenessScale, 0.08F, 1.0F);
+    }
+
+    /**
+     * Converts a per-tick smoothing factor into the equivalent factor for a frame of
+     * {@code deltaSeconds}, so a 144 fps client does not smooth seven times faster than a 20 Hz one.
+     */
+    private static float scaleSmoothingToFrame(float smoothing, float deltaSeconds) {
+        if (smoothing >= 1.0F) {
+            return 1.0F;
+        }
+        if (smoothing <= 0.0F || deltaSeconds <= 0.0F) {
+            return 0.0F;
+        }
+        double frames = deltaSeconds / SMOOTHING_REFERENCE_SECONDS;
+        return clamp((float) (1.0D - Math.pow(1.0D - smoothing, frames)), 0.0F, 1.0F);
     }
 
     private static float suppressMicroJitter(float value, float previousSmoothed, float threshold) {
