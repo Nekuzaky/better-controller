@@ -172,9 +172,11 @@ gamepad and drive the same character. Pin them in each instance's config:
 
 ## Architecture
 
-Two clocks. Buttons, movement and menus are tick-paced (20 Hz, `ClientTickEvents`);
-the camera is frame-paced (`WorldRenderEvents.START_MAIN`), so the right stick is
-sampled every rendered frame instead of once per tick.
+Two clocks. Buttons, movement and menus are tick-paced (20 Hz, `ClientTickEvents`).
+The camera is frame-paced: a Mixin at the head of `GameRenderer.render` samples the
+right stick every rendered frame, at the same point in the frame where vanilla
+applies the mouse — right after `Mouse.tick()` and before the frame's camera is
+built.
 
 ```
 ControllerPoller

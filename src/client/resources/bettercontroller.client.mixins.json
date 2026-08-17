@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "CreativeInventoryScreenAccessor",
+    "GameRendererMixin",
     "HandledScreenAccessor",
     "InputAccessor",
     "KeyBindingAccessor"

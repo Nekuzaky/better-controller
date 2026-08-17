@@ -23,6 +23,14 @@ public final class ControllerRuntime {
     private static final long LOOK_DELTA_MAX_NANOS = 75L * NANOS_PER_MS;
     private static final long LOOK_DELTA_DEFAULT_NANOS = 16L * NANOS_PER_MS;
     private static final double LOOK_REFERENCE_SECONDS = 1.0D / 30.0D;
+    /**
+     * Weight of the newest frame in the smoothed frame delta. A stick reports a rate, so the angle
+     * turned is rate x elapsed time - and the only elapsed time available is the previous frame's.
+     * Under uneven frame pacing that turns frame-time noise into camera-speed noise, which a mouse
+     * never suffers because its hardware reports an already-integrated displacement. Averaging a
+     * few frames removes the noise; being a mean, it leaves the average turn rate untouched.
+     */
+    private static final float FRAME_DELTA_SMOOTHING = 0.25F;
     private static final long STATUS_CONNECTED_MS = 3000L;
     private static final long STATUS_DISCONNECTED_MS = 3200L;
     private static final long STATUS_PROFILE_SWITCH_MS = 2400L;
@@ -46,6 +54,7 @@ public final class ControllerRuntime {
     private ControllerType activeControllerType = ControllerType.NONE;
     private GameplayInputFrame latestFrame;
     private long lastRenderLookUpdateNanos;
+    private float smoothedFrameSeconds;
     private boolean wasControllerConnected;
     private int previousJoystickId = -1;
     private ControllerType previousControllerType = ControllerType.NONE;
@@ -273,11 +282,19 @@ public final class ControllerRuntime {
             : now - lastRenderLookUpdateNanos;
         deltaNanos = Math.max(LOOK_DELTA_MIN_NANOS, Math.min(deltaNanos, LOOK_DELTA_MAX_NANOS));
         lastRenderLookUpdateNanos = now;
-        return (float) (deltaNanos / 1_000_000_000.0D);
+
+        float rawSeconds = (float) (deltaNanos / 1_000_000_000.0D);
+        if (smoothedFrameSeconds <= 0.0F) {
+            smoothedFrameSeconds = rawSeconds;
+        } else {
+            smoothedFrameSeconds += (rawSeconds - smoothedFrameSeconds) * FRAME_DELTA_SMOOTHING;
+        }
+        return smoothedFrameSeconds;
     }
 
     private void resetRenderLookClock() {
         lastRenderLookUpdateNanos = 0L;
+        smoothedFrameSeconds = 0.0F;
     }
 
     private static double clamp(double value, double min, double max) {

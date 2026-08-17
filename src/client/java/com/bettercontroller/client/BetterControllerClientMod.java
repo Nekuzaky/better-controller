@@ -10,7 +10,6 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
@@ -33,14 +32,22 @@ public class BetterControllerClientMod implements ClientModInitializer {
     private static final int SCREEN_MARGIN = 4;
     private static final int MIN_BUTTON_WIDTH = 120;
     private static final int CORNER_BUTTON_WIDTH = 146;
+    /** Reached from GameRendererMixin, which runs on the vanilla per-frame input path. */
+    private static ControllerRuntime activeRuntime;
+
     private final ControllerRuntime controllerRuntime = new ControllerRuntime();
     private final ControllerHUDRenderer controllerHUDRenderer = new ControllerHUDRenderer();
     private final ControllerDebugOverlayRenderer debugOverlayRenderer = new ControllerDebugOverlayRenderer();
     private final ControllerInventoryHighlightRenderer inventoryHighlightRenderer = new ControllerInventoryHighlightRenderer();
     private boolean debugToggleLatch;
 
+    public static ControllerRuntime runtime() {
+        return activeRuntime;
+    }
+
     @Override
     public void onInitializeClient() {
+        activeRuntime = controllerRuntime;
         ClientTickEvents.START_CLIENT_TICK.register(controllerRuntime::tick);
         ClientTickEvents.END_CLIENT_TICK.register(this::handleDebugToggle);
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
@@ -52,9 +59,6 @@ public class BetterControllerClientMod implements ClientModInitializer {
                 inventoryHighlightRenderer.render(currentClient, drawContext, controllerRuntime);
             });
         });
-        // Camera runs on the world render pass, not on the HUD element: HUD elements are skipped
-        // while the HUD is hidden (F1), which would freeze controller look.
-        WorldRenderEvents.START_MAIN.register(context -> controllerRuntime.onRenderFrame(MinecraftClient.getInstance()));
         HudElementRegistry.attachElementAfter(VanillaHudElements.SUBTITLES, BETTERCONTROLLER_HUD_LAYER_ID, (drawContext, tickCounter) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             controllerHUDRenderer.render(client, drawContext, controllerRuntime);

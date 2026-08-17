@@ -22,9 +22,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   vanilla layout at any window size or GUI scale. It no longer floats in the title
   bar of the options screen. The `ControlsOptionsScreen` special case is gone.
 - Camera look is now sampled once per rendered frame instead of once per client
-  tick. The right stick used to be read at 20 Hz and the value stretched across
-  render frames, adding up to 50 ms of camera latency; it is now read at frame
-  rate, which mainly shows on fast flicks.
+  tick, from a Mixin at the head of `GameRenderer.render` — the same point in the
+  frame where vanilla applies the mouse, right after `Mouse.tick()` and before the
+  frame's camera is built. The right stick used to be read at 20 Hz and the value
+  stretched across render frames, adding up to 50 ms of camera latency.
+- The frame delta used to integrate stick speed is averaged over a few frames. A
+  stick reports a rate, so the angle turned is rate × elapsed time — and the only
+  elapsed time available is the previous frame's, which under uneven frame pacing
+  turned frame-time noise into visible camera-speed noise. Being a mean, it leaves
+  the average turn rate untouched.
 - Camera smoothing is frame-rate independent. Smoothing strengths are still
   expressed per client tick, and rescaled to the actual frame delta, so a 144 fps
   client no longer smooths seven times faster than a 30 fps one.
@@ -33,8 +39,9 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 - Camera look froze while the HUD was hidden (`F1`). The camera was driven from a
-  HUD element, which vanilla skips when the HUD is off; it now runs on the world
-  render pass. HUD hints and the debug overlay stay on the HUD element.
+  HUD element, which vanilla skips when the HUD is off; it now runs from the
+  renderer. HUD hints and the debug overlay stay on the HUD element.
+- The mod shipped without an icon, so it showed up blank in the Fabric mod list.
 
 ### Internal
 - `InputTranslator.translate` no longer produces look; the frame-paced
