@@ -122,7 +122,10 @@ public final class ControllerRuntime {
         }
 
         latestConfig = configManager.getConfig();
-        latestSnapshot = controllerPoller.pollSnapshot();
+        latestSnapshot = controllerPoller.pollSnapshot(
+            latestConfig.preferredControllerGuid,
+            latestConfig.preferredJoystickIndex
+        );
 
         if (latestSnapshot == null || !latestSnapshot.isConnected()) {
             tickWhileDisconnected(client);

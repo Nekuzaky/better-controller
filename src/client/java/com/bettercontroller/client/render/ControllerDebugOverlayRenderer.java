@@ -48,6 +48,7 @@ public final class ControllerDebugOverlayRenderer {
             "Type: " + runtime.activeControllerType(),
             "Glyph Set: " + runtime.glyphs().activeGlyphSetName(),
             "Controller: " + snapshot.joystickName(),
+            "Slot: " + snapshot.joystickId() + "   GUID: " + snapshot.joystickGuid(),
             formatAxes("Raw", snapshot),
             formatTriggers(snapshot),
             String.format(Locale.ROOT, "Processed move(%.3f, %.3f) look(%.3f, %.3f)",

@@ -134,6 +134,32 @@ for the full schema with comments.
 - Prefix an axis token with `-` to invert it (e.g. `"-RIGHT_Y"`).
 - An action can have multiple bindings: `"hotbar_next": ["RB", "RT"]`.
 
+### Two players on one machine
+
+Minecraft Java has no splitscreen, and a mod cannot add one — the client is built
+around a single player, world, camera and GUI. What does work is **two game
+instances side by side**, both joined to the same LAN world (two Microsoft
+accounts required; Prism Launcher or MultiMC handle parallel instances well).
+
+For that, each instance has to claim its own pad — otherwise both grab the first
+gamepad and drive the same character. Pin them in each instance's config:
+
+```jsonc
+{
+  "preferredControllerGuid": "78696e70757401000000000000000000",
+  "preferredJoystickIndex": -1
+}
+```
+
+- `F8` shows the **slot** and **GUID** of the pad currently in use.
+- The GUID identifies a device *model*, so two identical pads share one. To tell
+  those apart, leave the GUID empty and set `preferredJoystickIndex` (`0`, `1`, …).
+- Set both and the index must also match the GUID — useful when slots move around.
+- Leave them at `""` / `-1` for the default behaviour: first gamepad found.
+- If a preference is set and nothing matches, **no** controller is used, on
+  purpose: a second instance must never steal the first one's pad. The reason is
+  logged once.
+
 ### Quick tuning
 
 | Goal                       | Try                                                       |

@@ -8,8 +8,15 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class ControllerConfig {
-    public int schemaVersion = 9;
+    public int schemaVersion = 10;
     public boolean autoActivateOnController = true;
+
+    /**
+     * Pins the mod to one specific gamepad, so two game instances on the same machine can each
+     * drive their own controller. Empty / -1 means "first gamepad found", the historical behaviour.
+     */
+    public String preferredControllerGuid = "";
+    public int preferredJoystickIndex = -1;
 
     public float movementDeadzone = 0.14F;
     public float lookDeadzone = 0.07F;
@@ -50,6 +57,9 @@ public final class ControllerConfig {
         }
         if (lookResponseCurve == null || lookResponseCurve.isBlank()) {
             lookResponseCurve = fallback.lookResponseCurve;
+        }
+        if (preferredControllerGuid == null) {
+            preferredControllerGuid = fallback.preferredControllerGuid;
         }
         if (lookSpeedMultiplier <= 0.0F) {
             lookSpeedMultiplier = fallback.lookSpeedMultiplier;

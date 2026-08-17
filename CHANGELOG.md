@@ -6,7 +6,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added
+- `preferredControllerGuid` / `preferredJoystickIndex` pin an instance to one
+  specific gamepad (config schema v10). Two game instances on one machine can now
+  each drive their own pad on a LAN world, which is as close to couch co-op as
+  Minecraft Java gets. When a preference is set and no pad matches, no controller
+  is used at all — a second instance must never steal the first one's pad.
+- The `F8` overlay shows the slot and GUID of the active pad, which is what the
+  two settings above are configured from. The README had claimed this for a while;
+  only the controller name was actually displayed.
+
 ### Changed
+- The `Controller Settings…` button is positioned relative to the screen's own
+  bottom-most widget instead of at fixed coordinates, so it reads as part of the
+  vanilla layout at any window size or GUI scale. It no longer floats in the title
+  bar of the options screen. The `ControlsOptionsScreen` special case is gone.
 - Camera look is now sampled once per rendered frame instead of once per client
   tick. The right stick used to be read at 20 Hz and the value stretched across
   render frames, adding up to 50 ms of camera latency; it is now read at frame
