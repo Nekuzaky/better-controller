@@ -64,7 +64,7 @@ stay small, predictable and allocation-free while doing it.
 
 ## Install
 
-1. [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.21.11.
+1. [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.20.1.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) in `mods/`.
 3. `bettercontroller-<version>.jar` from the [latest release](https://github.com/Nekuzaky/BetterController/releases/latest) in `mods/`.
 4. Launch. Plug a controller. Done.
@@ -228,7 +228,8 @@ InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
 
 Artifacts land in `build/libs/bettercontroller-<version>.jar`.
 
-Requires JDK 21 (Temurin, JBR, GraalVM — anything Java 21).
+Requires JDK 17 (Temurin, JBR, GraalVM — anything Java 17). Gradle can also
+provision it for you.
 
 ## Branching model
 
@@ -238,7 +239,7 @@ The repo tracks several Minecraft versions in parallel:
 |---------------------|-----------------------------------------|-------------|
 | `main`              | Latest supported Minecraft version      | stable      |
 | `develop`           | Active development for the latest version | active    |
-| `fabric-1.21.11`    | Frozen archive — Fabric 0.18.4, MC 1.21.11 | maintenance |
+| `fabric-1.20.1`     | This line — Fabric 0.19.3, MC 1.20.1, Java 17 | active      |
 
 When Minecraft cuts a new major (e.g. 26.x), `main` migrates to it and the
 previous line gets a `fabric-<version>` branch so old releases stay
@@ -246,7 +247,7 @@ buildable and patchable. To build a specific version, check out the
 matching branch:
 
 ```bash
-git checkout fabric-1.21.11
+git checkout fabric-1.20.1
 ./gradlew build
 ```
 
