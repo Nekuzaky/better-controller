@@ -12,8 +12,8 @@ import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.polling.ControllerType;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import com.bettercontroller.client.translation.InputTranslator;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 import java.util.function.Consumer;
@@ -132,7 +132,7 @@ public final class ControllerRuntime {
         return controllerPoller.unmappedJoystick();
     }
 
-    public void tick(MinecraftClient client) {
+    public void tick(Minecraft client) {
         if (client == null) {
             return;
         }
@@ -160,24 +160,24 @@ public final class ControllerRuntime {
             tickWhileSuspended(client);
             return;
         }
-        if (client.currentScreen != null) {
+        if (client.screen != null) {
             tickInScreen(client);
             return;
         }
-        if (client.player == null || client.world == null) {
+        if (client.player == null || client.level == null) {
             tickWhileInactive(client);
             return;
         }
         tickInWorld(client);
     }
 
-    private void tickWhileDisconnected(MinecraftClient client) {
+    private void tickWhileDisconnected(Minecraft client) {
         activeControllerType = ControllerType.NONE;
         activeLayout = null;
         latestFrame = inputTranslator.emptyFrame();
         glyphService.updateControllerType(ControllerType.NONE);
         if (wasControllerConnected) {
-            pushRuntimeStatus(Text.translatable("bettercontroller.status.disconnected").getString(), STATUS_DISCONNECTED_MS);
+            pushRuntimeStatus(Component.translatable("bettercontroller.status.disconnected").getString(), STATUS_DISCONNECTED_MS);
         }
         wasControllerConnected = false;
         previousJoystickId = -1;
@@ -195,7 +195,7 @@ public final class ControllerRuntime {
 
         if (!wasControllerConnected || previousJoystickId != latestSnapshot.joystickId()) {
             pushRuntimeStatus(
-                Text.translatable(
+                Component.translatable(
                     "bettercontroller.status.connected",
                     latestSnapshot.joystickName(),
                     activeControllerType
@@ -204,7 +204,7 @@ public final class ControllerRuntime {
             );
         } else if (previousControllerType != activeControllerType) {
             pushRuntimeStatus(
-                Text.translatable("bettercontroller.status.profile_switched", activeControllerType).getString(),
+                Component.translatable("bettercontroller.status.profile_switched", activeControllerType).getString(),
                 STATUS_PROFILE_SWITCH_MS
             );
         }
@@ -213,7 +213,7 @@ public final class ControllerRuntime {
         previousControllerType = activeControllerType;
     }
 
-    private void tickWhileSuspended(MinecraftClient client) {
+    private void tickWhileSuspended(Minecraft client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
         inputTranslator.resetState();
@@ -221,7 +221,7 @@ public final class ControllerRuntime {
         resetRenderLookClock();
     }
 
-    private void tickInScreen(MinecraftClient client) {
+    private void tickInScreen(Minecraft client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
         inputTranslator.resetState();
@@ -230,7 +230,7 @@ public final class ControllerRuntime {
         resetRenderLookClock();
     }
 
-    private void tickWhileInactive(MinecraftClient client) {
+    private void tickWhileInactive(Minecraft client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
         inputTranslator.resetState();
@@ -238,7 +238,7 @@ public final class ControllerRuntime {
         resetRenderLookClock();
     }
 
-    private void tickInWorld(MinecraftClient client) {
+    private void tickInWorld(Minecraft client) {
         GameplayInputFrame frame = inputTranslator.translate(latestSnapshot, latestConfig, activeLayout);
         if (frame.chatTap()) {
             virtualKeyboardLauncher.requestOpenOnNextTextScreen(latestConfig);
@@ -251,7 +251,7 @@ public final class ControllerRuntime {
      * Camera path, run once per rendered frame. The look axes are re-sampled here rather than in
      * {@link #tick} so the stick is read at frame rate instead of at the 20 Hz client tick.
      */
-    public void onRenderFrame(MinecraftClient client) {
+    public void onRenderFrame(Minecraft client) {
         if (!isLookActive(client)) {
             resetRenderLookClock();
             return;
@@ -276,7 +276,7 @@ public final class ControllerRuntime {
         );
     }
 
-    private boolean isLookActive(MinecraftClient client) {
+    private boolean isLookActive(Minecraft client) {
         if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
             return false;
         }
@@ -286,7 +286,7 @@ public final class ControllerRuntime {
         if (activeLayout == null) {
             return false;
         }
-        return client.currentScreen == null && client.player != null && client.world != null;
+        return client.screen == null && client.player != null && client.level != null;
     }
 
     private float advanceRenderLookClock() {

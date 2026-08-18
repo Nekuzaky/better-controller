@@ -4,10 +4,10 @@ import com.bettercontroller.BetterControllerMod;
 import com.bettercontroller.client.gui.ControllerInventorySelectionState;
 import com.bettercontroller.client.input.ControllerRuntime;
 import com.bettercontroller.client.mixin.HandledScreenAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.Slot;
 
 /**
  * Draws a controller-driven selection highlight on the currently focused inventory slot.
@@ -16,11 +16,11 @@ public final class ControllerInventoryHighlightRenderer {
     private static final int SLOT_SIZE = 20;
     private static boolean warnedMissingHandledScreenAccessor;
 
-    public void render(MinecraftClient client, DrawContext context, ControllerRuntime runtime) {
+    public void render(Minecraft client, GuiGraphicsExtractor context, ControllerRuntime runtime) {
         if (client == null || context == null || runtime == null) {
             return;
         }
-        if (!(client.currentScreen instanceof HandledScreen<?> handledScreen)) {
+        if (!(client.screen instanceof AbstractContainerScreen<?> handledScreen)) {
             return;
         }
         if (runtime.latestSnapshot() == null || !runtime.latestSnapshot().isConnected()) {
@@ -38,8 +38,8 @@ public final class ControllerInventoryHighlightRenderer {
     }
 
     private static void renderSelectionHighlight(
-        HandledScreen<?> handledScreen,
-        DrawContext context,
+        AbstractContainerScreen<?> handledScreen,
+        GuiGraphicsExtractor context,
         Slot selectedSlot,
         ControllerInventorySelectionState selectionState
     ) {
@@ -74,7 +74,7 @@ public final class ControllerInventoryHighlightRenderer {
         context.drawStrokedRectangle(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
     }
 
-    private static int handledScreenX(HandledScreen<?> screen) {
+    private static int handledScreenX(AbstractContainerScreen<?> screen) {
         if (screen instanceof HandledScreenAccessor accessor) {
             return accessor.bettercontroller$getX();
         }
@@ -82,7 +82,7 @@ public final class ControllerInventoryHighlightRenderer {
         return 0;
     }
 
-    private static int handledScreenY(HandledScreen<?> screen) {
+    private static int handledScreenY(AbstractContainerScreen<?> screen) {
         if (screen instanceof HandledScreenAccessor accessor) {
             return accessor.bettercontroller$getY();
         }
@@ -95,6 +95,6 @@ public final class ControllerInventoryHighlightRenderer {
             return;
         }
         warnedMissingHandledScreenAccessor = true;
-        BetterControllerMod.LOGGER.warn("HandledScreen accessor unavailable; inventory highlight position fallback in use.");
+        BetterControllerMod.LOGGER.warn("AbstractContainerScreen accessor unavailable; inventory highlight position fallback in use.");
     }
 }

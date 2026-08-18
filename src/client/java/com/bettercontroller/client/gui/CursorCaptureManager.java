@@ -1,6 +1,6 @@
 package com.bettercontroller.client.gui;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -18,7 +18,7 @@ public final class CursorCaptureManager {
         lastControllerInputMs = System.currentTimeMillis();
     }
 
-    public void sync(MinecraftClient client, boolean wantCapture) {
+    public void sync(Minecraft client, boolean wantCapture) {
         if (client == null || client.getWindow() == null) {
             captured = false;
             return;
@@ -40,7 +40,7 @@ public final class CursorCaptureManager {
         }
     }
 
-    public void release(MinecraftClient client) {
+    public void release(Minecraft client) {
         if (!captured) {
             return;
         }

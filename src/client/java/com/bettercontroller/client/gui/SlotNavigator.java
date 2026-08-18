@@ -1,7 +1,7 @@
 package com.bettercontroller.client.gui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.inventory.Slot;
 
 import java.util.List;
 
@@ -41,14 +41,14 @@ public final class SlotNavigator {
         }
         for (int i = 0; i < slots.size(); i++) {
             Slot slot = slots.get(i);
-            if (slot != null && slot.id == slotId) {
+            if (slot != null && slot.index == slotId) {
                 return slot;
             }
         }
         return null;
     }
 
-    public static Slot resolveInitialSlot(MinecraftClient client, List<Slot> slots) {
+    public static Slot resolveInitialSlot(Minecraft client, List<Slot> slots) {
         if (slots == null || slots.isEmpty()) {
             return null;
         }

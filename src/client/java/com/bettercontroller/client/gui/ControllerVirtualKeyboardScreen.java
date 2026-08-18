@@ -1,14 +1,14 @@
 package com.bettercontroller.client.gui;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     private static final int PREVIEW_MAX_CHARS = 64;
 
     private final Screen parentScreen;
-    private final TextFieldWidget originalTargetField;
+    private final EditBox originalTargetField;
     private final List<CharacterKey> characterKeys = new ArrayList<>();
     private String workingText;
     private int cursorIndex;
@@ -32,12 +32,12 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     private boolean applyOnClose;
     private boolean sendOnClose;
 
-    private ButtonWidget caseToggleButton;
-    private ClickableWidget lastFocusedWidget;
+    private Button caseToggleButton;
+    private AbstractWidget lastFocusedWidget;
     private long focusChangedMs;
 
-    public ControllerVirtualKeyboardScreen(Screen parentScreen, TextFieldWidget targetField) {
-        super(Text.translatable("bettercontroller.screen.virtual_keyboard.title"));
+    public ControllerVirtualKeyboardScreen(Screen parentScreen, EditBox targetField) {
+        super(Component.translatable("bettercontroller.screen.virtual_keyboard.title"));
         this.parentScreen = parentScreen;
         this.originalTargetField = targetField;
         this.workingText = targetField == null ? "" : targetField.getText();
@@ -61,64 +61,64 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int actionGap = 6;
         int actionX = (this.width - ((actionWidth * 4) + (actionGap * 3))) / 2;
 
-        caseToggleButton = addDrawableChild(ButtonWidget.builder(
-            Text.literal(caseLabel()),
+        caseToggleButton = addDrawableChild(Button.builder(
+            Component.literal(caseLabel()),
             button -> {
                 upperCase = !upperCase;
                 refreshCharacterLabels();
             }
-        ).dimensions(actionX, actionY, actionWidth, KEY_HEIGHT).build());
+        ).bounds(actionX, actionY, actionWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.backspace"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.backspace"),
             button -> backspace()
-        ).dimensions(actionX + (actionWidth + actionGap), actionY, actionWidth, KEY_HEIGHT).build());
+        ).bounds(actionX + (actionWidth + actionGap), actionY, actionWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.delete"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.delete"),
             button -> deleteForward()
-        ).dimensions(actionX + ((actionWidth + actionGap) * 2), actionY, actionWidth, KEY_HEIGHT).build());
+        ).bounds(actionX + ((actionWidth + actionGap) * 2), actionY, actionWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.space"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.space"),
             button -> insertText(" ")
-        ).dimensions(actionX + ((actionWidth + actionGap) * 3), actionY, actionWidth, KEY_HEIGHT).build());
+        ).bounds(actionX + ((actionWidth + actionGap) * 3), actionY, actionWidth, KEY_HEIGHT).build());
 
         int bottomY = actionY + KEY_HEIGHT + 8;
         int bottomWidth = 96;
         int bottomGap = 8;
         int bottomX = (this.width - ((bottomWidth * 4) + (bottomGap * 3))) / 2;
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.cursor_left"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.cursor_left"),
             button -> moveCursor(-1)
-        ).dimensions(bottomX, bottomY, bottomWidth, KEY_HEIGHT).build());
+        ).bounds(bottomX, bottomY, bottomWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.cursor_right"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.cursor_right"),
             button -> moveCursor(1)
-        ).dimensions(bottomX + (bottomWidth + bottomGap), bottomY, bottomWidth, KEY_HEIGHT).build());
+        ).bounds(bottomX + (bottomWidth + bottomGap), bottomY, bottomWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.cancel"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.cancel"),
             button -> {
                 applyOnClose = false;
                 sendOnClose = false;
                 close();
             }
-        ).dimensions(bottomX + ((bottomWidth + bottomGap) * 2), bottomY, bottomWidth, KEY_HEIGHT).build());
+        ).bounds(bottomX + ((bottomWidth + bottomGap) * 2), bottomY, bottomWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.translatable("bettercontroller.screen.virtual_keyboard.enter"),
+        addDrawableChild(Button.builder(
+            Component.translatable("bettercontroller.screen.virtual_keyboard.enter"),
             button -> {
                 applyOnClose = true;
                 sendOnClose = true;
                 close();
             }
-        ).dimensions(bottomX + ((bottomWidth + bottomGap) * 3), bottomY, bottomWidth, KEY_HEIGHT).build());
+        ).bounds(bottomX + ((bottomWidth + bottomGap) * 3), bottomY, bottomWidth, KEY_HEIGHT).build());
 
         if (!characterKeys.isEmpty()) {
-            ButtonWidget first = characterKeys.get(0).button();
+            Button first = characterKeys.get(0).button();
             setFocused(first);
             first.setFocused(true);
             lastFocusedWidget = first;
@@ -126,7 +126,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xD010131A);
         context.fill(0, 0, this.width, 30, 0xAA1D2633);
         renderKeyboardPanels(context);
@@ -135,14 +135,14 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         trackFocusChange();
 
         int centerX = this.width / 2;
-        context.drawCenteredTextWithShadow(this.textRenderer, this.title, centerX, 10, 0xFFFFFFFF);
+        context.drawCenteredTextWithShadow(this.font, this.title, centerX, 10, 0xFFFFFFFF);
 
         String preview = buildPreviewWithCursor();
         context.fill(centerX - 230, 30, centerX + 230, 44, 0xB5000000);
-        context.drawCenteredTextWithShadow(this.textRenderer, preview, centerX, 33, 0xFFE8EEF7);
+        context.drawCenteredTextWithShadow(this.font, preview, centerX, 33, 0xFFE8EEF7);
         context.drawCenteredTextWithShadow(
-            this.textRenderer,
-            Text.translatable("bettercontroller.screen.virtual_keyboard.cursor_pos", cursorIndex, workingText.length()),
+            this.font,
+            Component.translatable("bettercontroller.screen.virtual_keyboard.cursor_pos", cursorIndex, workingText.length()),
             centerX,
             46,
             0xFF9FB3C9
@@ -152,8 +152,8 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         renderFocusedKeyDetails(context, centerX);
 
         context.drawCenteredTextWithShadow(
-            this.textRenderer,
-            Text.translatable("bettercontroller.screen.virtual_keyboard.help"),
+            this.font,
+            Component.translatable("bettercontroller.screen.virtual_keyboard.help"),
             centerX,
             this.height - 18,
             0xFFB6C2D2
@@ -161,7 +161,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
             applyOnClose = false;
             sendOnClose = false;
@@ -204,7 +204,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
             return;
         }
 
-        TextFieldWidget target = resolveTargetField(parentScreen);
+        EditBox target = resolveTargetField(parentScreen);
         if (target == null) {
             return;
         }
@@ -220,10 +220,10 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int totalWidth = (row.length * keyWidth) + ((row.length - 1) * KEY_GAP);
         int x = (this.width - totalWidth) / 2;
         for (String key : row) {
-            ButtonWidget button = addDrawableChild(ButtonWidget.builder(
-                Text.literal(displayKey(key)),
+            Button button = addDrawableChild(Button.builder(
+                Component.literal(displayKey(key)),
                 widget -> insertText(displayKey(key))
-            ).dimensions(x, y, keyWidth, KEY_HEIGHT).build());
+            ).bounds(x, y, keyWidth, KEY_HEIGHT).build());
             characterKeys.add(new CharacterKey(key, button));
             x += keyWidth + KEY_GAP;
         }
@@ -268,10 +268,10 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
 
     private void refreshCharacterLabels() {
         for (CharacterKey key : characterKeys) {
-            key.button().setMessage(Text.literal(displayKey(key.baseToken())));
+            key.button().setMessage(Component.literal(displayKey(key.baseToken())));
         }
         if (caseToggleButton != null) {
-            caseToggleButton.setMessage(Text.literal(caseLabel()));
+            caseToggleButton.setMessage(Component.literal(caseLabel()));
         }
     }
 
@@ -283,7 +283,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     private String caseLabel() {
-        return Text.translatable(
+        return Component.translatable(
             upperCase
                 ? "bettercontroller.screen.virtual_keyboard.lowercase"
                 : "bettercontroller.screen.virtual_keyboard.uppercase"
@@ -310,8 +310,8 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         return clipped;
     }
 
-    private void renderFocusedKeyHighlight(DrawContext context) {
-        ClickableWidget focusedWidget = focusedWidget();
+    private void renderFocusedKeyHighlight(GuiGraphicsExtractor context) {
+        AbstractWidget focusedWidget = focusedWidget();
         if (focusedWidget == null) {
             return;
         }
@@ -337,7 +337,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         );
     }
 
-    private void renderKeyboardPanels(DrawContext context) {
+    private void renderKeyboardPanels(GuiGraphicsExtractor context) {
         int centerX = this.width / 2;
         context.fill(centerX - 248, 52, centerX + 248, 156, 0x3A0E1622);
         context.fill(centerX - 248, 52, centerX + 248, 53, 0x66587A9B);
@@ -345,8 +345,8 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         context.fill(centerX - 248, 187, centerX + 248, 214, 0x30131C29);
     }
 
-    private void renderFocusedKeyDetails(DrawContext context, int centerX) {
-        ClickableWidget focusedWidget = focusedWidget();
+    private void renderFocusedKeyDetails(GuiGraphicsExtractor context, int centerX) {
+        AbstractWidget focusedWidget = focusedWidget();
         if (focusedWidget == null) {
             return;
         }
@@ -355,8 +355,8 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
             return;
         }
         context.drawCenteredTextWithShadow(
-            this.textRenderer,
-            Text.translatable("bettercontroller.screen.virtual_keyboard.selected_key", focusedLabel),
+            this.font,
+            Component.translatable("bettercontroller.screen.virtual_keyboard.selected_key", focusedLabel),
             centerX,
             this.height - 30,
             0xFFD6E4F4
@@ -364,28 +364,28 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     private void trackFocusChange() {
-        ClickableWidget currentFocused = focusedWidget();
+        AbstractWidget currentFocused = focusedWidget();
         if (currentFocused != lastFocusedWidget) {
             lastFocusedWidget = currentFocused;
             focusChangedMs = System.currentTimeMillis();
         }
     }
 
-    private ClickableWidget focusedWidget() {
-        return this.getFocused() instanceof ClickableWidget widget ? widget : null;
+    private AbstractWidget focusedWidget() {
+        return this.getFocused() instanceof AbstractWidget widget ? widget : null;
     }
 
-    private TextFieldWidget resolveTargetField(Screen parent) {
+    private EditBox resolveTargetField(Screen parent) {
         if (parent == null) {
             return null;
         }
-        if (parent.getFocused() instanceof TextFieldWidget focusedField) {
+        if (parent.getFocused() instanceof EditBox focusedField) {
             return focusedField;
         }
 
-        TextFieldWidget firstField = null;
-        for (Element element : parent.children()) {
-            if (element instanceof TextFieldWidget textField) {
+        EditBox firstField = null;
+        for (GuiEventListener element : parent.children()) {
+            if (element instanceof EditBox textField) {
                 if (firstField == null) {
                     firstField = textField;
                 }
@@ -397,7 +397,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         return firstField;
     }
 
-    private static boolean isSameGeometry(TextFieldWidget a, TextFieldWidget b) {
+    private static boolean isSameGeometry(EditBox a, EditBox b) {
         if (a == null || b == null) {
             return false;
         }
@@ -408,7 +408,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     private void submitChatMessage() {
-        if (client == null || client.player == null || client.player.networkHandler == null) {
+        if (client == null || client.player == null || client.player.connection == null) {
             return;
         }
 
@@ -421,14 +421,14 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         if (message.startsWith("/")) {
             String command = message.substring(1).trim();
             if (!command.isEmpty()) {
-                client.player.networkHandler.sendChatCommand(command);
+                client.player.connection.sendChatCommand(command);
             }
         } else {
-            client.player.networkHandler.sendChatMessage(message);
+            client.player.connection.sendChatMessage(message);
         }
         client.setScreen(null);
     }
 
-    private record CharacterKey(String baseToken, ButtonWidget button) {
+    private record CharacterKey(String baseToken, Button button) {
     }
 }

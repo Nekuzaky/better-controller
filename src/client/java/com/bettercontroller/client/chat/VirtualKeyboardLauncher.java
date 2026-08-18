@@ -2,10 +2,10 @@ package com.bettercontroller.client.chat;
 
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.gui.ControllerVirtualKeyboardScreen;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
 
 /**
  * Opens BetterController's in-game virtual keyboard for the currently focused text field.
@@ -23,11 +23,11 @@ public final class VirtualKeyboardLauncher {
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return false;
         }
-        if (client.currentScreen == null || client.currentScreen instanceof ControllerVirtualKeyboardScreen) {
+        if (client.screen == null || client.screen instanceof ControllerVirtualKeyboardScreen) {
             return false;
         }
 
@@ -36,8 +36,8 @@ public final class VirtualKeyboardLauncher {
             return false;
         }
 
-        Screen screen = client.currentScreen;
-        TextFieldWidget targetField = resolveTargetTextField(screen);
+        Screen screen = client.screen;
+        EditBox targetField = resolveTargetTextField(screen);
         if (targetField == null) {
             return false;
         }
@@ -70,15 +70,15 @@ public final class VirtualKeyboardLauncher {
         }
     }
 
-    private static TextFieldWidget resolveTargetTextField(Screen screen) {
+    private static EditBox resolveTargetTextField(Screen screen) {
         if (screen == null) {
             return null;
         }
-        if (screen.getFocused() instanceof TextFieldWidget focusedTextField) {
+        if (screen.getFocused() instanceof EditBox focusedTextField) {
             return focusedTextField;
         }
-        for (Element element : screen.children()) {
-            if (element instanceof TextFieldWidget textField) {
+        for (GuiEventListener element : screen.children()) {
+            if (element instanceof EditBox textField) {
                 return textField;
             }
         }

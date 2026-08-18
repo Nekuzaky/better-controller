@@ -1,8 +1,8 @@
 package com.bettercontroller.client.gui;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.AbstractSliderButton;
 
 import java.util.List;
 
@@ -160,7 +160,7 @@ public final class WidgetNavigator {
             return -1;
         }
         if (selectedIndex >= 0 && selectedIndex < elements.size()) {
-            ClickableWidget widget = elements.get(selectedIndex).widget();
+            AbstractWidget widget = elements.get(selectedIndex).widget();
             if (widget.active && widget.visible) {
                 return selectedIndex;
             }
@@ -173,7 +173,7 @@ public final class WidgetNavigator {
             return -1;
         }
         var focused = screen == null ? null : screen.getFocused();
-        if (focused instanceof ClickableWidget focusedWidget) {
+        if (focused instanceof AbstractWidget focusedWidget) {
             for (int i = 0; i < elements.size(); i++) {
                 if (elements.get(i).widget() == focusedWidget) {
                     return i;
@@ -189,11 +189,11 @@ public final class WidgetNavigator {
         }
         if (fallbackIndex >= 0
             && fallbackIndex < elements.size()
-            && !(elements.get(fallbackIndex).widget() instanceof SliderWidget)) {
+            && !(elements.get(fallbackIndex).widget() instanceof AbstractSliderButton)) {
             return fallbackIndex;
         }
         for (int i = 0; i < elements.size(); i++) {
-            if (!(elements.get(i).widget() instanceof SliderWidget)) {
+            if (!(elements.get(i).widget() instanceof AbstractSliderButton)) {
                 return i;
             }
         }
@@ -202,7 +202,7 @@ public final class WidgetNavigator {
 
     public static void applySelection(Screen screen, List<GuiFocusElement> elements, int selectedIndex) {
         for (int i = 0; i < elements.size(); i++) {
-            ClickableWidget widget = elements.get(i).widget();
+            AbstractWidget widget = elements.get(i).widget();
             boolean selected = i == selectedIndex;
             widget.setFocused(selected);
             if (selected && screen != null) {

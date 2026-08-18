@@ -2,9 +2,9 @@ package com.bettercontroller.client.mixin;
 
 import com.bettercontroller.client.BetterControllerClientMod;
 import com.bettercontroller.client.input.ControllerRuntime;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.DeltaTracker;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Applies the controller camera at the point vanilla applies the mouse.
  *
- * <p>{@code MinecraftClient.render} calls {@code Mouse.tick()} and only then
+ * <p>{@code Minecraft.render} calls {@code Mouse.tick()} and only then
  * {@code GameRenderer.render}, which is where the camera for this frame is built. Injecting at the
  * head of the latter puts controller look in the same frame slot as mouse look, instead of one
  * frame later - which is where it landed while this ran from a render event nested inside
@@ -24,11 +24,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
-    @Inject(method = "render(Lnet/minecraft/client/render/RenderTickCounter;Z)V", at = @At("HEAD"))
-    private void bettercontroller$applyControllerLook(RenderTickCounter tickCounter, boolean tick, CallbackInfo callbackInfo) {
+    @Inject(method = "render(Lnet/minecraft/client/DeltaTracker;Z)V", at = @At("HEAD"))
+    private void bettercontroller$applyControllerLook(DeltaTracker tickCounter, boolean tick, CallbackInfo callbackInfo) {
         ControllerRuntime runtime = BetterControllerClientMod.runtime();
         if (runtime != null) {
-            runtime.onRenderFrame(MinecraftClient.getInstance());
+            runtime.onRenderFrame(Minecraft.getInstance());
         }
     }
 }

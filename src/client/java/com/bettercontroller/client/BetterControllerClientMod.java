@@ -12,21 +12,21 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
-import net.minecraft.client.gui.screen.option.OptionsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.ControlsScreen;
+import net.minecraft.client.gui.screens.options.OptionsScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
 public class BetterControllerClientMod implements ClientModInitializer {
-    private static final Identifier BETTERCONTROLLER_HUD_LAYER_ID = Identifier.of("bettercontroller", "runtime_hud");
+    private static final Identifier BETTERCONTROLLER_HUD_LAYER_ID = Identifier.fromNamespaceAndPath("bettercontroller", "runtime_hud");
     private static final int BUTTON_HEIGHT = 20;
     private static final int WIDGET_GAP = 4;
     private static final int SCREEN_MARGIN = 4;
@@ -51,16 +51,16 @@ public class BetterControllerClientMod implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(controllerRuntime::tick);
         ClientTickEvents.END_CLIENT_TICK.register(this::handleDebugToggle);
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            if (screen instanceof OptionsScreen || screen instanceof ControlsOptionsScreen || screen instanceof GameMenuScreen) {
+            if (screen instanceof OptionsScreen || screen instanceof ControlsScreen || screen instanceof PauseScreen) {
                 addSettingsButton(client, screen, scaledWidth);
             }
             ScreenEvents.afterRender(screen).register((renderedScreen, drawContext, mouseX, mouseY, tickDelta) -> {
-                MinecraftClient currentClient = MinecraftClient.getInstance();
+                Minecraft currentClient = Minecraft.getInstance();
                 inventoryHighlightRenderer.render(currentClient, drawContext, controllerRuntime);
             });
         });
         HudElementRegistry.attachElementAfter(VanillaHudElements.SUBTITLES, BETTERCONTROLLER_HUD_LAYER_ID, (drawContext, tickCounter) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             controllerHUDRenderer.render(client, drawContext, controllerRuntime);
             debugOverlayRenderer.render(client, drawContext, controllerRuntime);
         });
@@ -68,7 +68,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
         BetterControllerMod.LOGGER.info("BetterController client initialized.");
     }
 
-    private void handleDebugToggle(MinecraftClient client) {
+    private void handleDebugToggle(Minecraft client) {
         if (client == null || client.getWindow() == null) {
             return;
         }
@@ -80,26 +80,26 @@ public class BetterControllerClientMod implements ClientModInitializer {
         debugToggleLatch = pressed;
     }
 
-    private void addSettingsButton(MinecraftClient client, Screen screen, int scaledWidth) {
+    private void addSettingsButton(Minecraft client, Screen screen, int scaledWidth) {
         if (client == null || screen == null) {
             return;
         }
 
-        Text buttonText = Text.translatable("bettercontroller.ui.open_settings");
+        Component buttonText = Component.translatable("bettercontroller.ui.open_settings");
         String buttonLabel = buttonText.getString();
-        List<ClickableWidget> widgets = Screens.getButtons(screen);
+        List<AbstractWidget> widgets = Screens.getButtons(screen);
         boolean alreadyPresent = widgets.stream()
-            .anyMatch(widget -> widget instanceof ButtonWidget button
+            .anyMatch(widget -> widget instanceof Button button
                 && buttonLabel.equals(button.getMessage().getString()));
         if (alreadyPresent) {
             return;
         }
 
         Placement placement = resolvePlacement(screen, widgets, scaledWidth);
-        ButtonWidget button = ButtonWidget.builder(
+        Button button = Button.builder(
             buttonText,
             widget -> client.setScreen(new BetterControllerSettingsScreen(screen, controllerRuntime))
-        ).dimensions(placement.x(), placement.y(), placement.width(), BUTTON_HEIGHT).build();
+        ).bounds(placement.x(), placement.y(), placement.width(), BUTTON_HEIGHT).build();
         widgets.add(button);
     }
 
@@ -109,8 +109,8 @@ public class BetterControllerClientMod implements ClientModInitializer {
      * corner, at any window size or GUI scale. Candidates are tried in order and the first one
      * that stays on screen without overlapping an existing widget wins.
      */
-    private static Placement resolvePlacement(Screen screen, List<ClickableWidget> widgets, int scaledWidth) {
-        ClickableWidget anchor = bottomMostWidget(widgets);
+    private static Placement resolvePlacement(Screen screen, List<AbstractWidget> widgets, int scaledWidth) {
+        AbstractWidget anchor = bottomMostWidget(widgets);
         if (anchor != null) {
             Placement above = new Placement(
                 anchor.getX(),
@@ -137,9 +137,9 @@ public class BetterControllerClientMod implements ClientModInitializer {
         return new Placement(scaledWidth - CORNER_BUTTON_WIDTH - 6, 6, CORNER_BUTTON_WIDTH);
     }
 
-    private static ClickableWidget bottomMostWidget(List<ClickableWidget> widgets) {
-        ClickableWidget bottomMost = null;
-        for (ClickableWidget widget : widgets) {
+    private static AbstractWidget bottomMostWidget(List<AbstractWidget> widgets) {
+        AbstractWidget bottomMost = null;
+        for (AbstractWidget widget : widgets) {
             if (!widget.visible) {
                 continue;
             }
@@ -150,7 +150,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
         return bottomMost;
     }
 
-    private static boolean fits(Placement placement, Screen screen, List<ClickableWidget> widgets, int scaledWidth) {
+    private static boolean fits(Placement placement, Screen screen, List<AbstractWidget> widgets, int scaledWidth) {
         if (placement.width() < MIN_BUTTON_WIDTH) {
             return false;
         }
@@ -160,7 +160,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
         if (placement.y() < SCREEN_MARGIN || placement.y() + BUTTON_HEIGHT > screen.height - SCREEN_MARGIN) {
             return false;
         }
-        for (ClickableWidget widget : widgets) {
+        for (AbstractWidget widget : widgets) {
             if (widget.visible && overlaps(placement, widget)) {
                 return false;
             }
@@ -168,7 +168,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
         return true;
     }
 
-    private static boolean overlaps(Placement placement, ClickableWidget widget) {
+    private static boolean overlaps(Placement placement, AbstractWidget widget) {
         return placement.x() < widget.getX() + widget.getWidth()
             && widget.getX() < placement.x() + placement.width()
             && placement.y() < widget.getY() + widget.getHeight()

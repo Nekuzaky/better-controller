@@ -4,7 +4,7 @@ import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.polling.ControllerAxis;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.util.function.Consumer;
 
@@ -30,16 +30,16 @@ public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
 
     @Override
     public void onScreenTick(
-        MinecraftClient client,
+        Minecraft client,
         ControllerSnapshot snapshot,
         ControllerConfig config,
         ControllerConfig.ResolvedLayout layout
     ) {
-        if (client == null || client.currentScreen == null || snapshot == null || config == null || layout == null) {
+        if (client == null || client.screen == null || snapshot == null || config == null || layout == null) {
             return;
         }
 
-        boolean allowConfirmRepeat = client.currentScreen instanceof ControllerVirtualKeyboardScreen;
+        boolean allowConfirmRepeat = client.screen instanceof ControllerVirtualKeyboardScreen;
         GuiInputFrame frame = inputRouter.route(snapshot, config, layout, inputTranslator, allowConfirmRepeat);
 
         navigationController.onScreenTick(client, frame, request -> {

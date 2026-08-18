@@ -3,9 +3,9 @@ package com.bettercontroller.client.render;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
 import com.bettercontroller.client.input.ControllerRuntime;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.world.phys.HitResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,12 +15,12 @@ public final class ControllerHUDRenderer {
     private static final int CHIP_GAP = 4;
     private static final int CHIP_PADDING_X = 5;
 
-    public void render(MinecraftClient client, DrawContext context, ControllerRuntime runtime) {
+    public void render(Minecraft client, GuiGraphicsExtractor context, ControllerRuntime runtime) {
         if (client == null || context == null || runtime == null) {
             return;
         }
         String runtimeStatus = runtime.runtimeStatusMessage();
-        if (!runtimeStatus.isBlank() && client.currentScreen == null) {
+        if (!runtimeStatus.isBlank() && client.screen == null) {
             renderStatusBanner(client, context, runtimeStatus);
         }
 
@@ -28,7 +28,7 @@ public final class ControllerHUDRenderer {
         if (config == null || !config.hudHintsEnabled) {
             return;
         }
-        if (client.currentScreen != null || client.player == null || client.world == null) {
+        if (client.screen != null || client.player == null || client.level == null) {
             return;
         }
         if (runtime.latestSnapshot() == null || !runtime.latestSnapshot().isConnected()) {
@@ -52,9 +52,9 @@ public final class ControllerHUDRenderer {
             Prompt prompt = prompts.get(i);
             String buttonText = "[" + glyphs.glyphForBinding(prompt.button()) + "]";
             int width = (CHIP_PADDING_X * 2)
-                + client.textRenderer.getWidth(buttonText)
+                + client.font.width(buttonText)
                 + 4
-                + client.textRenderer.getWidth(prompt.label());
+                + client.font.width(prompt.label());
             widths[i] = width;
             totalWidth += width;
             if (i > 0) {
@@ -75,17 +75,17 @@ public final class ControllerHUDRenderer {
             context.fill(x, y + CHIP_HEIGHT - 1, x + width, y + CHIP_HEIGHT, 0x664E647A);
 
             int buttonX = x + CHIP_PADDING_X;
-            int labelX = buttonX + client.textRenderer.getWidth(buttonText) + 4;
-            context.drawText(client.textRenderer, buttonText, buttonX, y + 2, accent, false);
-            context.drawText(client.textRenderer, prompt.label(), labelX, y + 2, 0xFFF7FAFF, false);
+            int labelX = buttonX + client.font.width(buttonText) + 4;
+            context.drawText(client.font, buttonText, buttonX, y + 2, accent, false);
+            context.drawText(client.font, prompt.label(), labelX, y + 2, 0xFFF7FAFF, false);
             x += width + CHIP_GAP;
         }
     }
 
-    private static List<Prompt> buildPrompts(MinecraftClient client, ControllerConfig.ResolvedLayout layout) {
+    private static List<Prompt> buildPrompts(Minecraft client, ControllerConfig.ResolvedLayout layout) {
         List<Prompt> prompts = new ArrayList<>(4);
         prompts.add(new Prompt(firstBinding(layout, "jump"), "Jump"));
-        if (client.crosshairTarget != null && client.crosshairTarget.getType() != HitResult.Type.MISS) {
+        if (client.hitResult != null && client.hitResult.getType() != HitResult.Type.MISS) {
             prompts.add(new Prompt(firstBinding(layout, "attack"), "Mine/Attack"));
             prompts.add(new Prompt(firstBinding(layout, "use"), "Use"));
         } else {
@@ -102,14 +102,14 @@ public final class ControllerHUDRenderer {
         return layout.actionBindings(action).get(0);
     }
 
-    private static void renderStatusBanner(MinecraftClient client, DrawContext context, String message) {
-        int textWidth = client.textRenderer.getWidth(message);
+    private static void renderStatusBanner(Minecraft client, GuiGraphicsExtractor context, String message) {
+        int textWidth = client.font.width(message);
         int width = textWidth + 16;
         int x = (context.getScaledWindowWidth() - width) / 2;
         int y = 14;
         context.fill(x, y, x + width, y + 14, 0xA1000000);
         context.fill(x, y + 13, x + width, y + 14, 0x884E647A);
-        context.drawCenteredTextWithShadow(client.textRenderer, message, x + (width / 2), y + 3, 0xFFFFFFFF);
+        context.drawCenteredTextWithShadow(client.font, message, x + (width / 2), y + 3, 0xFFFFFFFF);
     }
 
     private record Prompt(String button, String label) {
