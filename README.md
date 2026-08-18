@@ -46,8 +46,10 @@ stay small, predictable and allocation-free while doing it.
 
 - **Plug-and-play.** Auto-detects Xbox, PlayStation, Switch Pro and generic
   XInput controllers, swaps glyphs accordingly, survives hot-disconnect.
-- **Analog everything.** Per-axis deadzone, anti-deadzone, response curve,
-  adaptive smoothing on the right stick.
+- **Analog everything.** Radial deadzone on movement, so a diagonal escapes it at
+  the same distance as a cardinal and the stick direction is never bent. Per-axis
+  deadzone, anti-deadzone, response curve and adaptive smoothing on the look
+  stick.
 - **Full GUI navigation.** Inventories, chests, creative search, options,
   world list, virtual keyboard for chat. Right stick scrolls scrollable
   screens (creative inventory, world list).

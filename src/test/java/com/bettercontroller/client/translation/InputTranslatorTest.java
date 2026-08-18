@@ -69,6 +69,63 @@ class InputTranslatorTest {
     }
 
     @Test
+    void diagonalEscapesTheDeadzoneAtTheSameDistanceAsACardinal() {
+        // Per-axis deadzones make the dead area a square: 0.11 on each axis is below 0.14 on both,
+        // yet the stick is 0.156 from centre - further than a cardinal push that does register.
+        config.movementDeadzone = 0.14f;
+        snapshot.simulateAxis(ControllerAxis.LEFT_X, 0.11f);
+        snapshot.simulateAxis(ControllerAxis.LEFT_Y, 0.11f);
+
+        GameplayInputFrame frame = translator.translate(snapshot, config, layout);
+
+        // The analog vector is what moves the player; the booleans have their own, higher
+        // threshold because they drive key bindings rather than movement.
+        assertTrue(frame.processedMoveX() > 0.0f, "a diagonal past the deadzone radius must register");
+        assertTrue(frame.processedMoveY() > 0.0f, "a diagonal past the deadzone radius must register");
+    }
+
+    @Test
+    void radialDeadzoneKeepsTheStickDirection() {
+        config.movementDeadzone = 0.14f;
+        snapshot.simulateAxis(ControllerAxis.LEFT_X, 0.60f);
+        snapshot.simulateAxis(ControllerAxis.LEFT_Y, 0.30f);
+
+        GameplayInputFrame frame = translator.translate(snapshot, config, layout);
+
+        assertEquals(
+            0.60f / 0.30f,
+            frame.processedMoveX() / frame.processedMoveY(),
+            0.001f,
+            "the deadzone may shorten the vector, never rotate it"
+        );
+    }
+
+    @Test
+    void insideTheDeadzoneRadiusNothingMoves() {
+        config.movementDeadzone = 0.20f;
+        snapshot.simulateAxis(ControllerAxis.LEFT_X, 0.12f);
+        snapshot.simulateAxis(ControllerAxis.LEFT_Y, 0.12f);
+
+        GameplayInputFrame frame = translator.translate(snapshot, config, layout);
+
+        assertEquals(0.0f, frame.processedMoveX(), 0.0001f);
+        assertEquals(0.0f, frame.processedMoveY(), 0.0001f);
+    }
+
+    @Test
+    void diagonalsAreNotFasterThanCardinals() {
+        // A square gate reports about 1.41 at the corner; unclamped that would outrun a cardinal.
+        config.movementDeadzone = 0.10f;
+        snapshot.simulateAxis(ControllerAxis.LEFT_X, 1.0f);
+        snapshot.simulateAxis(ControllerAxis.LEFT_Y, 1.0f);
+
+        GameplayInputFrame frame = translator.translate(snapshot, config, layout);
+        double length = Math.hypot(frame.processedMoveX(), frame.processedMoveY());
+
+        assertTrue(length <= 1.0001f, "vector length was " + length);
+    }
+
+    @Test
     void negativeAxisProducesOppositeMovement() {
         config.movementDeadzone = 0.14f;
         snapshot.simulateAxis(ControllerAxis.LEFT_X, -0.50f);

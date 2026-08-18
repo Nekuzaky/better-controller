@@ -106,8 +106,12 @@ public final class InputTranslator {
         ControllerConfig.ResolvedLayout layout,
         GameplayInputFrame frame
     ) {
-        float moveX = applyDeadzone(readAxis(snapshot, layout.axisToken("move_x")), config.movementDeadzone);
-        float moveY = applyDeadzone(readAxis(snapshot, layout.axisToken("move_y")), config.movementDeadzone);
+        float rawX = readAxis(snapshot, layout.axisToken("move_x"));
+        float rawY = readAxis(snapshot, layout.axisToken("move_y"));
+        float magnitude = (float) Math.sqrt((rawX * rawX) + (rawY * rawY));
+        float factor = radialDeadzoneFactor(magnitude, config.movementDeadzone);
+        float moveX = rawX * factor;
+        float moveY = rawY * factor;
 
         frame.setMovement(
             moveX < -0.05F,
@@ -280,13 +284,27 @@ public final class InputTranslator {
         return invert ? -value : value;
     }
 
-    private static float applyDeadzone(float value, float deadzone) {
-        float absolute = Math.abs(value);
-        if (absolute < deadzone) {
+    /**
+     * Scale to apply to both movement axes for a circular deadzone.
+     *
+     * <p>Applying a deadzone to each axis on its own makes the dead area a square: a diagonal push
+     * has to travel about 1.41x further to escape it, and rescaling each axis against its own
+     * threshold bends the vector away from where the stick actually points. Working from the
+     * vector's length fixes both - the direction is never touched, only its length.
+     *
+     * @return 0 inside the deadzone, otherwise the factor mapping the remaining travel onto 0..1.
+     */
+    static float radialDeadzoneFactor(float magnitude, float deadzone) {
+        if (magnitude <= 0.0F || magnitude < deadzone) {
             return 0.0F;
         }
-        float scaled = (absolute - deadzone) / (1.0F - deadzone);
-        return Math.copySign(scaled, value);
+        if (deadzone >= 1.0F) {
+            return 0.0F;
+        }
+        // Sticks report a square gate, so a corner reads about 1.41: clamp, or diagonals would
+        // come out faster than cardinals.
+        float scaled = Math.min((magnitude - deadzone) / (1.0F - deadzone), 1.0F);
+        return scaled / magnitude;
     }
 
     private static float applyLookDeadzone(float value, float deadzone, float antiDeadzone) {
