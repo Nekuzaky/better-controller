@@ -8,8 +8,8 @@ import com.bettercontroller.client.render.ControllerHUDRenderer;
 import com.bettercontroller.client.render.ControllerInventoryHighlightRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
@@ -20,13 +20,12 @@ import net.minecraft.client.gui.screen.option.OptionsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
 public class BetterControllerClientMod implements ClientModInitializer {
-    private static final Identifier BETTERCONTROLLER_HUD_LAYER_ID = Identifier.of("bettercontroller", "runtime_hud");
     private static final int BUTTON_HEIGHT = 20;
     private static final int WIDGET_GAP = 4;
     private static final int SCREEN_MARGIN = 4;
@@ -59,7 +58,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
                 inventoryHighlightRenderer.render(currentClient, drawContext, controllerRuntime);
             });
         });
-        HudElementRegistry.attachElementAfter(VanillaHudElements.SUBTITLES, BETTERCONTROLLER_HUD_LAYER_ID, (drawContext, tickCounter) -> {
+        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             controllerHUDRenderer.render(client, drawContext, controllerRuntime);
             debugOverlayRenderer.render(client, drawContext, controllerRuntime);

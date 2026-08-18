@@ -4,7 +4,10 @@ All notable changes to BetterController are documented in this file. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-08-18
+
+Supports Minecraft 1.20.1, which needs Java 17. This is the version most large
+modpacks still target.
 
 ### Added
 - A pad GLFW has no mapping for is no longer a silent dead end. Drop the device's

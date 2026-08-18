@@ -15,9 +15,9 @@
   <a href="https://github.com/Nekuzaky/BetterController/releases">
     <img alt="Downloads" src="https://img.shields.io/github/downloads/Nekuzaky/BetterController/total?color=brightgreen">
   </a>
-  <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-1.21.11-62b132?logo=minecraft&logoColor=white">
-  <img alt="Fabric" src="https://img.shields.io/badge/fabric-0.18.4-blueviolet">
-  <img alt="Java" src="https://img.shields.io/badge/java-21-orange?logo=openjdk&logoColor=white">
+  <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-1.20.1-62b132?logo=minecraft&logoColor=white">
+  <img alt="Fabric" src="https://img.shields.io/badge/fabric-0.19.3-blueviolet">
+  <img alt="Java" src="https://img.shields.io/badge/java-17-orange?logo=openjdk&logoColor=white">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Nekuzaky/BetterController?color=blue"></a>
 </p>
 

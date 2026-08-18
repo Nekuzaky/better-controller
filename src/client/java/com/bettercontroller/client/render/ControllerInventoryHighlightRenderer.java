@@ -64,14 +64,14 @@ public final class ControllerInventoryHighlightRenderer {
 
         context.fill(left - glowPad, top - glowPad, right + glowPad, bottom + glowPad, (outerAlpha << 24) | 0x30B8FF);
         context.fill(left, top, right, bottom, (innerAlpha << 24) | 0x58C8FF);
-        context.drawStrokedRectangle(
+        context.drawBorder(
             left - grow,
             top - grow,
             SLOT_SIZE + (grow * 2),
             SLOT_SIZE + (grow * 2),
             (borderAlpha << 24) | 0xE7F7FF
         );
-        context.drawStrokedRectangle(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
+        context.drawBorder(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
     }
 
     private static int handledScreenX(HandledScreen<?> screen) {

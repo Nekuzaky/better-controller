@@ -1,7 +1,7 @@
 package com.bettercontroller.client.input;
 
 import com.bettercontroller.BetterControllerMod;
-import com.bettercontroller.client.mixin.InputAccessor;
+
 import com.bettercontroller.client.mixin.KeyBindingAccessor;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import net.minecraft.client.MinecraftClient;
@@ -10,12 +10,11 @@ import net.minecraft.client.input.Input;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.math.Vec2f;
+
 
 public final class MinecraftInputApplier {
 
     private static boolean warnedMissingBoundKeyAccessor;
-    private static boolean warnedMissingMovementVectorAccessor;
 
     private boolean previousJumpHeld;
     private boolean previousAttackHeld;
@@ -117,7 +116,7 @@ public final class MinecraftInputApplier {
         if (client.player == null) {
             return;
         }
-        int currentSlot = client.player.getInventory().getSelectedSlot();
+        int currentSlot = client.player.getInventory().selectedSlot;
         int nextSlot = Math.floorMod(currentSlot + offset, 9);
         selectSlot(client, nextSlot);
     }
@@ -127,7 +126,7 @@ public final class MinecraftInputApplier {
             return;
         }
         int nextSlot = Math.floorMod(slot, 9);
-        client.player.getInventory().setSelectedSlot(nextSlot);
+        client.player.getInventory().selectedSlot = nextSlot;
         if (client.player.networkHandler != null) {
             client.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(nextSlot));
         }
@@ -199,13 +198,7 @@ public final class MinecraftInputApplier {
             clampedY *= scale;
         }
 
-        if (input instanceof InputAccessor accessor) {
-            accessor.bettercontroller$setMovementVector(new Vec2f(clampedX, clampedY));
-            return;
-        }
-        if (!warnedMissingMovementVectorAccessor) {
-            warnedMissingMovementVectorAccessor = true;
-            BetterControllerMod.LOGGER.warn("Input accessor unavailable; analog movement vector could not be applied.");
-        }
+        input.movementSideways = clampedX;
+        input.movementForward = clampedY;
     }
 }

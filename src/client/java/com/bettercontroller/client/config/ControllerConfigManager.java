@@ -3,7 +3,7 @@ package com.bettercontroller.client.config;
 import com.bettercontroller.BetterControllerMod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.Strictness;
+
 import com.google.gson.stream.JsonReader;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -140,7 +140,7 @@ public final class ControllerConfigManager {
 
         try (Reader reader = Files.newBufferedReader(configPath, StandardCharsets.UTF_8)) {
             JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setStrictness(Strictness.LENIENT);
+            jsonReader.setLenient(true);
 
             ControllerConfig loaded = GSON.fromJson(jsonReader, ControllerConfig.class);
             if (loaded == null) {

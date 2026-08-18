@@ -55,7 +55,7 @@ public final class SlotNavigator {
         if (client == null || client.player == null) {
             return slots.get(0);
         }
-        int selectedHotbar = client.player.getInventory().getSelectedSlot();
+        int selectedHotbar = client.player.getInventory().selectedSlot;
         for (int i = 0; i < slots.size(); i++) {
             Slot slot = slots.get(i);
             if (slot != null

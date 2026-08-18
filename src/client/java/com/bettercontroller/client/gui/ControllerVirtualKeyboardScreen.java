@@ -7,7 +7,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
+
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -161,36 +161,36 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
-        if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             applyOnClose = false;
             sendOnClose = false;
             close();
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
             backspace();
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_DELETE) {
+        if (keyCode == GLFW.GLFW_KEY_DELETE) {
             deleteForward();
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_LEFT) {
+        if (keyCode == GLFW.GLFW_KEY_LEFT) {
             moveCursor(-1);
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_RIGHT) {
+        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
             moveCursor(1);
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_ENTER || input.key() == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             applyOnClose = true;
             sendOnClose = true;
             close();
             return true;
         }
-        return super.keyPressed(input);
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -328,7 +328,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int glowAlpha = (int) (50 + (pulse * 25));
 
         context.fill(left - 2, top - 2, left + width + 2, top + height + 2, (glowAlpha << 24) | 0x6FCFFF);
-        context.drawStrokedRectangle(
+        context.drawBorder(
             left - grow,
             top - grow,
             width + (grow * 2),

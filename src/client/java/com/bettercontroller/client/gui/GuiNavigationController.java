@@ -1,7 +1,7 @@
 package com.bettercontroller.client.gui;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
+
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
@@ -11,8 +11,8 @@ import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.PressableWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
+
+
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import org.lwjgl.glfw.GLFW;
@@ -119,7 +119,7 @@ public final class GuiNavigationController {
         double mouseX = screen.width / 2.0D;
         double mouseY = screen.height / 2.0D;
         double verticalAmount = stickY < 0.0F ? 1.0D : -1.0D;
-        screen.mouseScrolled(mouseX, mouseY, 0.0D, verticalAmount);
+        screen.mouseScrolled(mouseX, mouseY, verticalAmount);
         cursorCapture.noteControllerInput();
     }
 
@@ -525,7 +525,7 @@ public final class GuiNavigationController {
         }
         double mouseX = screen.width / 2.0D;
         double mouseY = screen.height / 2.0D;
-        return screen.mouseScrolled(mouseX, mouseY, 0.0D, verticalAmount);
+        return screen.mouseScrolled(mouseX, mouseY, verticalAmount);
     }
 
     private static void handleListNavigation(Screen screen, AlwaysSelectedEntryListWidget<?> listWidget, GuiInputFrame inputFrame) {
@@ -626,12 +626,13 @@ public final class GuiNavigationController {
     private static void triggerConfirm(GuiFocusElement selected, Consumer<Boolean> virtualKeyboardRequest) {
         ClickableWidget widget = selected.widget();
         if (widget instanceof PressableWidget pressableWidget) {
-            pressableWidget.onPress(new KeyInput(GLFW.GLFW_KEY_ENTER, 0, 0));
+            pressableWidget.onPress();
             return;
         }
-        Click click = new Click(selected.centerX(), selected.centerY(), new MouseInput(GLFW.GLFW_MOUSE_BUTTON_LEFT, 0));
-        widget.mouseClicked(click, false);
-        widget.mouseReleased(click);
+        double clickX = selected.centerX();
+        double clickY = selected.centerY();
+        widget.mouseClicked(clickX, clickY, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        widget.mouseReleased(clickX, clickY, GLFW.GLFW_MOUSE_BUTTON_LEFT);
         if (widget instanceof TextFieldWidget && virtualKeyboardRequest != null) {
             virtualKeyboardRequest.accept(true);
         }
@@ -666,7 +667,7 @@ public final class GuiNavigationController {
         if (element == null) {
             return false;
         }
-        return element.keyPressed(new KeyInput(keyCode, 0, modifiers));
+        return element.keyPressed(keyCode, 0, modifiers);
     }
 
     private enum NavigationMode {

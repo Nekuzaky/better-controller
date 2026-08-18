@@ -2,12 +2,11 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.bettercontroller.client.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "client": [
     "CreativeInventoryScreenAccessor",
     "GameRendererMixin",
     "HandledScreenAccessor",
-    "InputAccessor",
     "KeyBindingAccessor"
   ],
   "injectors": {
