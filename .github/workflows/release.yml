@@ -28,15 +28,53 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
+      # Catches the classic release mistake: tagging v0.2.0 while gradle.properties
+      # still says 0.1.0, which would publish a JAR whose name contradicts the tag.
+      - name: Check the tag matches mod_version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          mod_version="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')"
+          if [ -z "$mod_version" ]; then
+            echo "::error::mod_version not found in gradle.properties"
+            exit 1
+          fi
+          if [ "$tag_version" != "$mod_version" ] && [ "${tag_version%%-*}" != "$mod_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match mod_version=$mod_version"
+            exit 1
+          fi
+          echo "Releasing $GITHUB_REF_NAME from mod_version=$mod_version"
+
       - name: Build release JAR
         run: ./gradlew build --stacktrace
+
+      # build/libs also holds the sources JAR, which must never be offered as the
+      # download: it is not loadable, and a player who grabs it gets a mod that
+      # silently does nothing. Select the one real artifact and fail on ambiguity
+      # rather than uploading whatever a glob happens to match.
+      - name: Select the mod JAR
+        id: artifact
+        run: |
+          shopt -s nullglob
+          candidates=()
+          for jar in build/libs/*.jar; do
+            case "$jar" in
+              *-sources.jar|*-javadoc.jar|*-dev.jar|*-dev-shadow.jar) continue ;;
+            esac
+            candidates+=("$jar")
+          done
+          if [ ${#candidates[@]} -ne 1 ]; then
+            echo "::error::Expected exactly one mod JAR in build/libs, found ${#candidates[@]}: ${candidates[*]}"
+            exit 1
+          fi
+          echo "path=${candidates[0]}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${candidates[0]}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: BetterController ${{ github.ref_name }}
           body_path: CHANGELOG.md
-          files: build/libs/bettercontroller-*.jar
+          files: ${{ steps.artifact.outputs.path }}
           fail_on_unmatched_files: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
