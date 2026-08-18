@@ -4,6 +4,7 @@ import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.input.ControllerRuntime;
 import com.bettercontroller.client.polling.ControllerAxis;
 import com.bettercontroller.client.polling.ControllerButton;
+import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import net.minecraft.client.MinecraftClient;
@@ -42,6 +43,14 @@ public final class ControllerDebugOverlayRenderer {
         int y = 8;
         int lineHeight = 10;
 
+        // A player whose pad has no GLFW mapping sees "Connected: false" and nothing else, with no
+        // way to find the GUID a mapping line needs. Surface it here, where they will look.
+        String unmapped = runtime.unmappedJoystick();
+        if (!snapshot.isConnected() && unmapped != null) {
+            renderUnmappedNotice(client, context, unmapped);
+            return;
+        }
+
         String[] lines = new String[] {
             "BetterController Debug (F8)",
             "Connected: " + snapshot.isConnected(),
@@ -64,6 +73,29 @@ public final class ControllerDebugOverlayRenderer {
         context.fill(x - 4, y - 4, x + maxWidth + 6, y + (lines.length * lineHeight) + 2, 0x9A000000);
         for (int i = 0; i < lines.length; i++) {
             context.drawTextWithShadow(client.textRenderer, lines[i], x, y + (i * lineHeight), 0xFFFFFFFF);
+        }
+    }
+
+    private static void renderUnmappedNotice(MinecraftClient client, DrawContext context, String unmapped) {
+        String[] lines = new String[] {
+            "BetterController Debug (F8)",
+            "No usable gamepad. This device has no GLFW mapping:",
+            "  " + unmapped,
+            "Add a line for it to config/" + ControllerMappings.MAPPINGS_FILE_NAME,
+            ControllerMappings.DATABASE_URL
+        };
+
+        int x = 8;
+        int y = 8;
+        int lineHeight = 10;
+        int maxWidth = 0;
+        for (String line : lines) {
+            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(line));
+        }
+
+        context.fill(x - 4, y - 4, x + maxWidth + 6, y + (lines.length * lineHeight) + 2, 0x9A000000);
+        for (int i = 0; i < lines.length; i++) {
+            context.drawTextWithShadow(client.textRenderer, lines[i], x, y + (i * lineHeight), 0xFFFFC66B);
         }
     }
 

@@ -275,9 +275,27 @@ controller. Same UX, ~400 fewer lines of config.
 
 ### My favourite controller isn't detected.
 
-Open an [issue](https://github.com/Nekuzaky/BetterController/issues/new?template=bug_report.yml)
-with the GLFW name and GUID — `F8` debug overlay shows both. Detection is
-heuristic and easy to extend.
+Two different problems hide behind that sentence — press `F8` to tell them apart.
+
+**The overlay names your pad but the glyphs are wrong.** The pad works; only the
+type heuristic missed. Open an
+[issue](https://github.com/Nekuzaky/BetterController/issues/new?template=bug_report.yml)
+with the name and GUID shown by `F8`; detection is heuristic and easy to extend.
+
+**The overlay says there is no usable gamepad.** GLFW only reports a joystick as
+a *gamepad* when it has an SDL mapping for that device, and without one the pad is
+invisible rather than mis-detected. GLFW ships a mapping database, but it is a
+snapshot from when that GLFW version was built, so recent pads and
+DirectInput-only devices fall through.
+
+Fix it without waiting for a GLFW update: create
+`config/bettercontroller-mappings.txt` and paste in the line for your device from
+[SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB) (the whole
+file works too). The mod applies it at startup and logs how many mappings it took.
+`F8` prints the GUID you need to match, and the log names the device.
+
+The database is not bundled on purpose: it is around a megabyte of text, which
+would dwarf the mod itself, for a case most players never hit.
 
 ## Contributing
 

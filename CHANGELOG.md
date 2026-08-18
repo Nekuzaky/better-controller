@@ -7,6 +7,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ## [Unreleased]
 
 ### Added
+- A pad GLFW has no mapping for is no longer a silent dead end. Drop the device's
+  line from SDL_GameControllerDB into `config/bettercontroller-mappings.txt` and
+  the mod applies it at startup. When no usable gamepad is found, the log and the
+  `F8` overlay both name the connected device and the GUID a mapping needs —
+  previously the overlay just said `Connected: false` with nothing to act on.
+  The database itself is not bundled: a megabyte of text would dwarf the mod.
 - `preferredControllerGuid` / `preferredJoystickIndex` pin an instance to one
   specific gamepad (config schema v10). Two game instances on one machine can now
   each drive their own pad on a LAN world, which is as close to couch co-op as

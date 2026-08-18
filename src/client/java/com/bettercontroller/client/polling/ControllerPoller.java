@@ -13,6 +13,8 @@ public final class ControllerPoller {
     private int activeJoystickId = -1;
     private ControllerType activeControllerType = ControllerType.NONE;
     private boolean warnedUnresolvedPreference;
+    private int unmappedJoystickId = -1;
+    private String unmappedJoystick;
 
     public ControllerSnapshot pollSnapshot() {
         return pollSnapshot("", -1);
@@ -110,16 +112,59 @@ public final class ControllerPoller {
         warnedUnresolvedPreference = false;
 
         if (isUsableGamepad(activeJoystickId)) {
+            clearUnmappedJoystick();
             return activeJoystickId;
         }
 
         for (int joystickId = GLFW.GLFW_JOYSTICK_1; joystickId <= GLFW.GLFW_JOYSTICK_LAST; joystickId++) {
             if (isUsableGamepad(joystickId)) {
+                clearUnmappedJoystick();
                 return joystickId;
             }
         }
 
+        scanForUnmappedJoystick();
         return -1;
+    }
+
+    /**
+     * A joystick GLFW has no mapping for is not reported as a gamepad, so it is invisible to the
+     * rest of the mod. Naming it - with the GUID a mapping line needs - turns a dead end into
+     * something the player can act on.
+     */
+    private void scanForUnmappedJoystick() {
+        for (int joystickId = GLFW.GLFW_JOYSTICK_1; joystickId <= GLFW.GLFW_JOYSTICK_LAST; joystickId++) {
+            if (!GLFW.glfwJoystickPresent(joystickId) || GLFW.glfwJoystickIsGamepad(joystickId)) {
+                continue;
+            }
+            if (unmappedJoystickId != joystickId) {
+                // Built once per device change, not once per tick.
+                String name = GLFW.glfwGetJoystickName(joystickId);
+                String guid = GLFW.glfwGetJoystickGUID(joystickId);
+                unmappedJoystickId = joystickId;
+                unmappedJoystick = (name == null ? "Unknown" : name) + "  " + (guid == null ? "n/a" : guid);
+                BetterControllerMod.LOGGER.warn(
+                    "'{}' (guid: {}) is connected, but GLFW has no gamepad mapping for it, so it cannot be used. "
+                        + "Add a line for it to config/{} - mappings are published at {}.",
+                    name == null ? "Unknown" : name,
+                    guid == null ? "n/a" : guid,
+                    ControllerMappings.MAPPINGS_FILE_NAME,
+                    ControllerMappings.DATABASE_URL
+                );
+            }
+            return;
+        }
+        clearUnmappedJoystick();
+    }
+
+    private void clearUnmappedJoystick() {
+        unmappedJoystickId = -1;
+        unmappedJoystick = null;
+    }
+
+    /** Name and GUID of a connected-but-unmapped joystick, or null. Shown by the F8 overlay. */
+    public String unmappedJoystick() {
+        return unmappedJoystick;
     }
 
     static boolean hasPreference(String preferredGuid, int preferredIndex) {

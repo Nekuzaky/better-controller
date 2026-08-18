@@ -6,6 +6,7 @@ import com.bettercontroller.client.config.ControllerConfigManager;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
 import com.bettercontroller.client.gui.ControllerGuiNavigationHooks;
 import com.bettercontroller.client.gui.ControllerInventorySelectionState;
+import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerPoller;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.polling.ControllerType;
@@ -55,6 +56,7 @@ public final class ControllerRuntime {
     private GameplayInputFrame latestFrame;
     private long lastRenderLookUpdateNanos;
     private float smoothedFrameSeconds;
+    private boolean mappingsApplied;
     private boolean wasControllerConnected;
     private int previousJoystickId = -1;
     private ControllerType previousControllerType = ControllerType.NONE;
@@ -125,9 +127,21 @@ public final class ControllerRuntime {
         latestConfig = config;
     }
 
+    /** Name and GUID of a connected joystick GLFW cannot drive, or null. */
+    public String unmappedJoystick() {
+        return controllerPoller.unmappedJoystick();
+    }
+
     public void tick(MinecraftClient client) {
         if (client == null) {
             return;
+        }
+
+        // Deferred to the first tick rather than done at mod init: this calls GLFW, and a tick
+        // only ever runs once the window - and therefore GLFW - is up.
+        if (!mappingsApplied) {
+            mappingsApplied = true;
+            ControllerMappings.applyUserMappings(configManager.configPath().getParent());
         }
 
         latestConfig = configManager.getConfig();
