@@ -36,7 +36,6 @@ public final class MinecraftInputApplier {
         applyActionKey(client.options.useKey, frame.useHeld(), false);
         setHold(client.options.playerListKey, frame.playerListHeld());
 
-        applyAnalogMovementVector(client, frame);
         applyTaps(client, frame);
         applyHotbar(client, frame);
     }
@@ -56,7 +55,6 @@ public final class MinecraftInputApplier {
             return;
         }
 
-        clearAnalogMovement(client);
         setHold(client.options.forwardKey, false);
         setHold(client.options.backKey, false);
         setHold(client.options.leftKey, false);
@@ -93,23 +91,23 @@ public final class MinecraftInputApplier {
     }
 
     /**
-     * Writes the analog movement vector. Discrete forward/back/left/right state and jump come
-     * from the KeyBinding setHold calls -- KeyboardInput.tick() rebuilds input.playerInput from
-     * those keybindings every tick, and overwriting playerInput from here would mask the rising
-     * edge detection Minecraft uses for creative double-tap fly.
+     * Applies the stick deflection over the values vanilla just derived from the key bindings.
+     *
+     * <p>Movement still goes through those key bindings, so the rising-edge behaviour Minecraft
+     * relies on - creative double-tap fly - keeps working. This only replaces the magnitude, and it
+     * has to run from KeyboardInputMixin rather than from the client tick: KeyboardInput.tick()
+     * recomputes both fields from the key bindings later in the same tick, which used to discard
+     * the stick's deflection entirely.
+     *
+     * <p>Sideways is negated because vanilla treats a positive value as strafing left while the
+     * stick reports positive to the right, and the sneak slow-down is re-applied because vanilla
+     * applies it just before this runs.
      */
-    private static void applyAnalogMovementVector(MinecraftClient client, GameplayInputFrame frame) {
-        if (client.player == null || client.player.input == null) {
+    public void applyAnalogMovement(Input input, GameplayInputFrame frame, boolean slowDown, float slowDownFactor) {
+        if (input == null || frame == null) {
             return;
         }
-        setMovementVector(client.player.input, frame.processedMoveX(), -frame.processedMoveY());
-    }
-
-    private static void clearAnalogMovement(MinecraftClient client) {
-        if (client == null || client.player == null || client.player.input == null) {
-            return;
-        }
-        setMovementVector(client.player.input, 0.0F, 0.0F);
+        setMovementVector(input, -frame.processedMoveX(), -frame.processedMoveY(), slowDown, slowDownFactor);
     }
 
     private static void cycleSlot(MinecraftClient client, int offset) {
@@ -184,7 +182,7 @@ public final class MinecraftInputApplier {
         return null;
     }
 
-    private static void setMovementVector(Input input, float moveX, float moveY) {
+    private static void setMovementVector(Input input, float moveX, float moveY, boolean slowDown, float slowDownFactor) {
         if (input == null) {
             return;
         }
@@ -196,6 +194,11 @@ public final class MinecraftInputApplier {
             float scale = (float) (1.0D / Math.sqrt(lengthSquared));
             clampedX *= scale;
             clampedY *= scale;
+        }
+
+        if (slowDown) {
+            clampedX *= slowDownFactor;
+            clampedY *= slowDownFactor;
         }
 
         input.movementSideways = clampedX;
