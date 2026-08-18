@@ -55,6 +55,26 @@ public final class BrandingGenerator {
         writeIcon(new File(modResource, "icon.png"), 128);
         writeBanner(new File(outputDir, "banner-1280x720.png"));
 
+        File shots = new File("run/screenshots");
+        writeGalleryCard(
+            new File(shots, "2026-08-18_02.35.59.png"),
+            new File(outputDir, "gallery-1-gameplay.png"),
+            "Play with any gamepad",
+            "Analog look and movement, with button prompts that match your controller."
+        );
+        writeGalleryCard(
+            new File(shots, "2026-08-18_02.35.37.png"),
+            new File(outputDir, "gallery-2-overlay.png"),
+            "See exactly what the mod reads",
+            "F8 shows raw axes, triggers, the detected pad, its slot and its GUID."
+        );
+        writeGalleryCard(
+            new File(shots, "2026-08-18_02.36.33.png"),
+            new File(outputDir, "gallery-3-settings.png"),
+            "Tuning without leaving the game",
+            "The five values most people change. Everything else lives in bettercontroller.json."
+        );
+
         System.out.println("Branding written to branding/ and src/main/resources/assets/bettercontroller/icon.png");
     }
 
@@ -100,6 +120,68 @@ public final class BrandingGenerator {
         g.dispose();
         ImageIO.write(image, "png", file);
         System.out.println("  " + file.getPath() + "  " + width + "x" + height);
+    }
+
+    /**
+     * Frames an in-game screenshot as a gallery card: the shot fills the frame, a scrim at the
+     * bottom keeps the caption readable whatever the screenshot shows behind it. Skipped silently
+     * when the source is missing, so the generator still runs on a fresh clone.
+     */
+    private static void writeGalleryCard(File source, File out, String title, String subtitle) throws IOException {
+        if (!source.isFile()) {
+            System.out.println("  skipped " + out.getName() + " - missing " + source.getPath());
+            return;
+        }
+
+        int width = 1280;
+        int height = 720;
+        BufferedImage shot = ImageIO.read(source);
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = createGraphics(image);
+
+        paintBackdrop(g, width, height, 0);
+
+        // The screenshot is framed rather than full-bleed: Minecraft's own HUD lives along the
+        // bottom edge, which is exactly where a caption would sit and exactly what these images
+        // are meant to show off.
+        int frameX = 80;
+        int frameY = 10;
+        int frameWidth = 1120;
+        int frameHeight = 630;
+        double scale = Math.max(frameWidth / (double) shot.getWidth(), frameHeight / (double) shot.getHeight());
+        int drawWidth = (int) Math.round(shot.getWidth() * scale);
+        int drawHeight = (int) Math.round(shot.getHeight() * scale);
+
+        java.awt.Shape savedClip = g.getClip();
+        g.clip(new RoundRectangle2D.Double(frameX, frameY, frameWidth, frameHeight, 18, 18));
+        g.drawImage(
+            shot,
+            frameX + (frameWidth - drawWidth) / 2,
+            frameY + (frameHeight - drawHeight) / 2,
+            drawWidth,
+            drawHeight,
+            null
+        );
+        g.setClip(savedClip);
+
+        g.setColor(SLATE);
+        g.setStroke(new BasicStroke(2f));
+        g.draw(new RoundRectangle2D.Double(frameX, frameY, frameWidth, frameHeight, 18, 18));
+
+        g.setColor(GREEN);
+        g.fill(new RoundRectangle2D.Double(frameX, 660, 6, 48, 6, 6));
+
+        g.setColor(ACCENT);
+        g.setFont(displayFont(Font.BOLD, 29));
+        g.drawString(title, frameX + 20, 685);
+
+        g.setColor(new Color(0x9FB3C8));
+        g.setFont(displayFont(Font.PLAIN, 19));
+        g.drawString(subtitle, frameX + 20, 709);
+
+        g.dispose();
+        ImageIO.write(image, "png", out);
+        System.out.println("  " + out.getPath() + "  " + width + "x" + height);
     }
 
     private static int paintBadge(Graphics2D g, String label, int x, int y) {
