@@ -160,7 +160,7 @@ public final class ControllerRuntime {
             tickWhileSuspended(client);
             return;
         }
-        if (client.screen != null) {
+        if (client.gui.screen() != null) {
             tickInScreen(client);
             return;
         }
@@ -286,7 +286,7 @@ public final class ControllerRuntime {
         if (activeLayout == null) {
             return false;
         }
-        return client.screen == null && client.player != null && client.level != null;
+        return client.gui.screen() == null && client.player != null && client.level != null;
     }
 
     private float advanceRenderLookClock() {

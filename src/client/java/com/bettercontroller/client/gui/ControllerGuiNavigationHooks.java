@@ -35,11 +35,11 @@ public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
         ControllerConfig config,
         ControllerConfig.ResolvedLayout layout
     ) {
-        if (client == null || client.screen == null || snapshot == null || config == null || layout == null) {
+        if (client == null || client.gui.screen() == null || snapshot == null || config == null || layout == null) {
             return;
         }
 
-        boolean allowConfirmRepeat = client.screen instanceof ControllerVirtualKeyboardScreen;
+        boolean allowConfirmRepeat = client.gui.screen() instanceof ControllerVirtualKeyboardScreen;
         GuiInputFrame frame = inputRouter.route(snapshot, config, layout, inputTranslator, allowConfirmRepeat);
 
         navigationController.onScreenTick(client, frame, request -> {

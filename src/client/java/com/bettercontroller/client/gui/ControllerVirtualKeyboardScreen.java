@@ -40,7 +40,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         super(Component.translatable("bettercontroller.screen.virtual_keyboard.title"));
         this.parentScreen = parentScreen;
         this.originalTargetField = targetField;
-        this.workingText = targetField == null ? "" : targetField.getText();
+        this.workingText = targetField == null ? "" : targetField.getValue();
         this.cursorIndex = this.workingText.length();
     }
 
@@ -61,7 +61,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int actionGap = 6;
         int actionX = (this.width - ((actionWidth * 4) + (actionGap * 3))) / 2;
 
-        caseToggleButton = addDrawableChild(Button.builder(
+        caseToggleButton = addRenderableWidget(Button.builder(
             Component.literal(caseLabel()),
             button -> {
                 upperCase = !upperCase;
@@ -69,17 +69,17 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
             }
         ).bounds(actionX, actionY, actionWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.backspace"),
             button -> backspace()
         ).bounds(actionX + (actionWidth + actionGap), actionY, actionWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.delete"),
             button -> deleteForward()
         ).bounds(actionX + ((actionWidth + actionGap) * 2), actionY, actionWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.space"),
             button -> insertText(" ")
         ).bounds(actionX + ((actionWidth + actionGap) * 3), actionY, actionWidth, KEY_HEIGHT).build());
@@ -89,31 +89,31 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int bottomGap = 8;
         int bottomX = (this.width - ((bottomWidth * 4) + (bottomGap * 3))) / 2;
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.cursor_left"),
             button -> moveCursor(-1)
         ).bounds(bottomX, bottomY, bottomWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.cursor_right"),
             button -> moveCursor(1)
         ).bounds(bottomX + (bottomWidth + bottomGap), bottomY, bottomWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.cancel"),
             button -> {
                 applyOnClose = false;
                 sendOnClose = false;
-                close();
+                onClose();
             }
         ).bounds(bottomX + ((bottomWidth + bottomGap) * 2), bottomY, bottomWidth, KEY_HEIGHT).build());
 
-        addDrawableChild(Button.builder(
+        addRenderableWidget(Button.builder(
             Component.translatable("bettercontroller.screen.virtual_keyboard.enter"),
             button -> {
                 applyOnClose = true;
                 sendOnClose = true;
-                close();
+                onClose();
             }
         ).bounds(bottomX + ((bottomWidth + bottomGap) * 3), bottomY, bottomWidth, KEY_HEIGHT).build());
 
@@ -126,21 +126,21 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xD010131A);
         context.fill(0, 0, this.width, 30, 0xAA1D2633);
         renderKeyboardPanels(context);
-        super.render(context, mouseX, mouseY, delta);
+        super.extractRenderState(context, mouseX, mouseY, delta);
 
         trackFocusChange();
 
         int centerX = this.width / 2;
-        context.drawCenteredTextWithShadow(this.font, this.title, centerX, 10, 0xFFFFFFFF);
+        context.centeredText(this.font, this.title, centerX, 10, 0xFFFFFFFF);
 
         String preview = buildPreviewWithCursor();
         context.fill(centerX - 230, 30, centerX + 230, 44, 0xB5000000);
-        context.drawCenteredTextWithShadow(this.font, preview, centerX, 33, 0xFFE8EEF7);
-        context.drawCenteredTextWithShadow(
+        context.centeredText(this.font, preview, centerX, 33, 0xFFE8EEF7);
+        context.centeredText(
             this.font,
             Component.translatable("bettercontroller.screen.virtual_keyboard.cursor_pos", cursorIndex, workingText.length()),
             centerX,
@@ -151,7 +151,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         renderFocusedKeyHighlight(context);
         renderFocusedKeyDetails(context, centerX);
 
-        context.drawCenteredTextWithShadow(
+        context.centeredText(
             this.font,
             Component.translatable("bettercontroller.screen.virtual_keyboard.help"),
             centerX,
@@ -165,7 +165,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
             applyOnClose = false;
             sendOnClose = false;
-            close();
+            onClose();
             return true;
         }
         if (input.key() == GLFW.GLFW_KEY_BACKSPACE) {
@@ -187,19 +187,19 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         if (input.key() == GLFW.GLFW_KEY_ENTER || input.key() == GLFW.GLFW_KEY_KP_ENTER) {
             applyOnClose = true;
             sendOnClose = true;
-            close();
+            onClose();
             return true;
         }
         return super.keyPressed(input);
     }
 
     @Override
-    public void close() {
-        if (this.client == null) {
+    public void onClose() {
+        if (this.minecraft == null) {
             return;
         }
 
-        this.client.setScreen(parentScreen);
+        this.minecraft.gui.setScreen(parentScreen);
         if (!applyOnClose || parentScreen == null) {
             return;
         }
@@ -208,7 +208,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         if (target == null) {
             return;
         }
-        target.setText(workingText);
+        target.setValue(workingText);
         target.setFocused(true);
         if (sendOnClose && parentScreen instanceof ChatScreen) {
             submitChatMessage();
@@ -220,7 +220,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int totalWidth = (row.length * keyWidth) + ((row.length - 1) * KEY_GAP);
         int x = (this.width - totalWidth) / 2;
         for (String key : row) {
-            Button button = addDrawableChild(Button.builder(
+            Button button = addRenderableWidget(Button.builder(
                 Component.literal(displayKey(key)),
                 widget -> insertText(displayKey(key))
             ).bounds(x, y, keyWidth, KEY_HEIGHT).build());
@@ -328,7 +328,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int glowAlpha = (int) (50 + (pulse * 25));
 
         context.fill(left - 2, top - 2, left + width + 2, top + height + 2, (glowAlpha << 24) | 0x6FCFFF);
-        context.drawStrokedRectangle(
+        context.outline(
             left - grow,
             top - grow,
             width + (grow * 2),
@@ -354,7 +354,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         if (focusedLabel == null || focusedLabel.isBlank()) {
             return;
         }
-        context.drawCenteredTextWithShadow(
+        context.centeredText(
             this.font,
             Component.translatable("bettercontroller.screen.virtual_keyboard.selected_key", focusedLabel),
             centerX,
@@ -408,25 +408,25 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     }
 
     private void submitChatMessage() {
-        if (client == null || client.player == null || client.player.connection == null) {
+        if (minecraft == null || minecraft.player == null || minecraft.player.connection == null) {
             return;
         }
 
         String message = workingText == null ? "" : workingText.trim();
         if (message.isEmpty()) {
-            client.setScreen(null);
+            minecraft.gui.setScreen(null);
             return;
         }
 
         if (message.startsWith("/")) {
             String command = message.substring(1).trim();
             if (!command.isEmpty()) {
-                client.player.connection.sendChatCommand(command);
+                minecraft.player.connection.sendCommand(command);
             }
         } else {
-            client.player.connection.sendChatMessage(message);
+            minecraft.player.connection.sendChat(message);
         }
-        client.setScreen(null);
+        minecraft.gui.setScreen(null);
     }
 
     private record CharacterKey(String baseToken, Button button) {

@@ -20,7 +20,7 @@ public final class CreativeTabNavigator {
         if (!(screen instanceof CreativeModeInventoryScreen creativeScreen) || step == 0) {
             return false;
         }
-        List<CreativeModeTab> groups = CreativeModeTabs.getGroupsToDisplay();
+        List<CreativeModeTab> groups = CreativeModeTabs.tabs();
         if (groups == null || groups.isEmpty()) {
             return false;
         }

@@ -20,19 +20,19 @@ public final class SlotNavigator {
     public static int findDirectionalSlot(List<Slot> slots, int currentId, int dirX, int dirY) {
         Slot current = findSlotById(slots, currentId);
         if (current == null) {
-            return slots.isEmpty() ? -1 : slots.get(0).id;
+            return slots.isEmpty() ? -1 : slots.get(0).index;
         }
 
         Slot laneCandidate = findLaneAlignedSlot(slots, current, dirX, dirY);
         if (laneCandidate != null) {
-            return laneCandidate.id;
+            return laneCandidate.index;
         }
         Slot rowColumnCandidate = findRowColumnNeighborSlot(slots, current, dirX, dirY);
         if (rowColumnCandidate != null) {
-            return rowColumnCandidate.id;
+            return rowColumnCandidate.index;
         }
         Slot generic = findGenericNearest(slots, current, dirX, dirY);
-        return generic == null ? current.id : generic.id;
+        return generic == null ? current.index : generic.index;
     }
 
     public static Slot findSlotById(List<Slot> slots, int slotId) {
@@ -59,8 +59,8 @@ public final class SlotNavigator {
         for (int i = 0; i < slots.size(); i++) {
             Slot slot = slots.get(i);
             if (slot != null
-                && slot.inventory == client.player.getInventory()
-                && slot.getIndex() == selectedHotbar) {
+                && slot.container == client.player.getInventory()
+                && slot.getContainerSlot() == selectedHotbar) {
                 return slot;
             }
         }
@@ -74,8 +74,8 @@ public final class SlotNavigator {
         int cx = current.x + SLOT_CENTER_OFFSET;
         int cy = current.y + SLOT_CENTER_OFFSET;
         return dirX != 0
-            ? findHorizontalNeighbor(slots, current.id, cx, cy, dirX)
-            : findVerticalNeighbor(slots, current.id, cx, cy, dirY);
+            ? findHorizontalNeighbor(slots, current.index, cx, cy, dirX)
+            : findVerticalNeighbor(slots, current.index, cx, cy, dirY);
     }
 
     private static Slot findHorizontalNeighbor(List<Slot> slots, int currentId, int cx, int cy, int dirX) {
@@ -85,7 +85,7 @@ public final class SlotNavigator {
 
         for (int i = 0; i < slots.size(); i++) {
             Slot candidate = slots.get(i);
-            if (candidate == null || candidate.id == currentId) continue;
+            if (candidate == null || candidate.index == currentId) continue;
             int deltaX = (candidate.x + SLOT_CENTER_OFFSET) - cx;
             int deltaY = (candidate.y + SLOT_CENTER_OFFSET) - cy;
             if (dirX < 0 && deltaX >= 0) continue;
@@ -109,7 +109,7 @@ public final class SlotNavigator {
 
         for (int i = 0; i < slots.size(); i++) {
             Slot candidate = slots.get(i);
-            if (candidate == null || candidate.id == currentId) continue;
+            if (candidate == null || candidate.index == currentId) continue;
             int deltaY = (candidate.y + SLOT_CENTER_OFFSET) - cy;
             if (dirY < 0 && deltaY >= 0) continue;
             if (dirY > 0 && deltaY <= 0) continue;
@@ -136,7 +136,7 @@ public final class SlotNavigator {
 
         for (int i = 0; i < slots.size(); i++) {
             Slot candidate = slots.get(i);
-            if (candidate == null || candidate.id == current.id) continue;
+            if (candidate == null || candidate.index == current.index) continue;
             int deltaX = (candidate.x + SLOT_CENTER_OFFSET) - cx;
             int deltaY = (candidate.y + SLOT_CENTER_OFFSET) - cy;
             if (dirX < 0 && deltaX >= 0) continue;
@@ -172,7 +172,7 @@ public final class SlotNavigator {
 
         for (int i = 0; i < slots.size(); i++) {
             Slot candidate = slots.get(i);
-            if (candidate == null || candidate.id == current.id) continue;
+            if (candidate == null || candidate.index == current.index) continue;
             int deltaX = (candidate.x + SLOT_CENTER_OFFSET) - cx;
             int deltaY = (candidate.y + SLOT_CENTER_OFFSET) - cy;
             if (dirX < 0 && deltaX >= 0) continue;

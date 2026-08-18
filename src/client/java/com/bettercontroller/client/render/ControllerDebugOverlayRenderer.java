@@ -72,7 +72,7 @@ public final class ControllerDebugOverlayRenderer {
 
         context.fill(x - 4, y - 4, x + maxWidth + 6, y + (lines.length * lineHeight) + 2, 0x9A000000);
         for (int i = 0; i < lines.length; i++) {
-            context.drawTextWithShadow(client.font, lines[i], x, y + (i * lineHeight), 0xFFFFFFFF);
+            context.text(client.font, lines[i], x, y + (i * lineHeight), 0xFFFFFFFF);
         }
     }
 
@@ -95,7 +95,7 @@ public final class ControllerDebugOverlayRenderer {
 
         context.fill(x - 4, y - 4, x + maxWidth + 6, y + (lines.length * lineHeight) + 2, 0x9A000000);
         for (int i = 0; i < lines.length; i++) {
-            context.drawTextWithShadow(client.font, lines[i], x, y + (i * lineHeight), 0xFFFFC66B);
+            context.text(client.font, lines[i], x, y + (i * lineHeight), 0xFFFFC66B);
         }
     }
 

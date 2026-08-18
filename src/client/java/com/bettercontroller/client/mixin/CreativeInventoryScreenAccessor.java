@@ -13,6 +13,6 @@ public interface CreativeInventoryScreenAccessor {
         throw new AssertionError();
     }
 
-    @Invoker("setSelectedTab")
+    @Invoker("selectTab")
     void bettercontroller$invokeSetSelectedTab(CreativeModeTab itemGroup);
 }

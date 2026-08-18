@@ -7,6 +7,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(KeyMapping.class)
 public interface KeyBindingAccessor {
-    @Accessor("boundKey")
+    @Accessor("key")
     InputConstants.Key bettercontroller$getBoundKey();
 }

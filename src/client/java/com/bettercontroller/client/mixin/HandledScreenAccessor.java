@@ -6,15 +6,15 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(AbstractContainerScreen.class)
 public interface HandledScreenAccessor {
-    @Accessor("x")
+    @Accessor("leftPos")
     int bettercontroller$getX();
 
-    @Accessor("y")
+    @Accessor("topPos")
     int bettercontroller$getY();
 
-    @Accessor("backgroundWidth")
+    @Accessor("imageWidth")
     int bettercontroller$getBackgroundWidth();
 
-    @Accessor("backgroundHeight")
+    @Accessor("imageHeight")
     int bettercontroller$getBackgroundHeight();
 }

@@ -20,7 +20,7 @@ public final class ControllerHUDRenderer {
             return;
         }
         String runtimeStatus = runtime.runtimeStatusMessage();
-        if (!runtimeStatus.isBlank() && client.screen == null) {
+        if (!runtimeStatus.isBlank() && client.gui.screen() == null) {
             renderStatusBanner(client, context, runtimeStatus);
         }
 
@@ -28,7 +28,7 @@ public final class ControllerHUDRenderer {
         if (config == null || !config.hudHintsEnabled) {
             return;
         }
-        if (client.screen != null || client.player == null || client.level == null) {
+        if (client.gui.screen() != null || client.player == null || client.level == null) {
             return;
         }
         if (runtime.latestSnapshot() == null || !runtime.latestSnapshot().isConnected()) {
@@ -62,8 +62,8 @@ public final class ControllerHUDRenderer {
             }
         }
 
-        int x = (context.getScaledWindowWidth() - totalWidth) / 2;
-        int y = context.getScaledWindowHeight() - 48;
+        int x = (context.guiWidth() - totalWidth) / 2;
+        int y = context.guiHeight() - 48;
         int accent = 0xFFE2E8F0;
 
         for (int i = 0; i < prompts.size(); i++) {
@@ -76,8 +76,8 @@ public final class ControllerHUDRenderer {
 
             int buttonX = x + CHIP_PADDING_X;
             int labelX = buttonX + client.font.width(buttonText) + 4;
-            context.drawText(client.font, buttonText, buttonX, y + 2, accent, false);
-            context.drawText(client.font, prompt.label(), labelX, y + 2, 0xFFF7FAFF, false);
+            context.text(client.font, buttonText, buttonX, y + 2, accent, false);
+            context.text(client.font, prompt.label(), labelX, y + 2, 0xFFF7FAFF, false);
             x += width + CHIP_GAP;
         }
     }
@@ -105,11 +105,11 @@ public final class ControllerHUDRenderer {
     private static void renderStatusBanner(Minecraft client, GuiGraphicsExtractor context, String message) {
         int textWidth = client.font.width(message);
         int width = textWidth + 16;
-        int x = (context.getScaledWindowWidth() - width) / 2;
+        int x = (context.guiWidth() - width) / 2;
         int y = 14;
         context.fill(x, y, x + width, y + 14, 0xA1000000);
         context.fill(x, y + 13, x + width, y + 14, 0x884E647A);
-        context.drawCenteredTextWithShadow(client.font, message, x + (width / 2), y + 3, 0xFFFFFFFF);
+        context.centeredText(client.font, message, x + (width / 2), y + 3, 0xFFFFFFFF);
     }
 
     private record Prompt(String button, String label) {

@@ -54,7 +54,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
             if (screen instanceof OptionsScreen || screen instanceof ControlsScreen || screen instanceof PauseScreen) {
                 addSettingsButton(client, screen, scaledWidth);
             }
-            ScreenEvents.afterRender(screen).register((renderedScreen, drawContext, mouseX, mouseY, tickDelta) -> {
+            ScreenEvents.afterForeground(screen).register((renderedScreen, drawContext, mouseX, mouseY, tickDelta) -> {
                 Minecraft currentClient = Minecraft.getInstance();
                 inventoryHighlightRenderer.render(currentClient, drawContext, controllerRuntime);
             });
@@ -73,7 +73,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
             return;
         }
 
-        boolean pressed = GLFW.glfwGetKey(client.getWindow().getHandle(), GLFW.GLFW_KEY_F8) == GLFW.GLFW_PRESS;
+        boolean pressed = GLFW.glfwGetKey(client.getWindow().handle(), GLFW.GLFW_KEY_F8) == GLFW.GLFW_PRESS;
         if (pressed && !debugToggleLatch) {
             debugOverlayRenderer.toggleVisibility();
         }
@@ -87,7 +87,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
 
         Component buttonText = Component.translatable("bettercontroller.ui.open_settings");
         String buttonLabel = buttonText.getString();
-        List<AbstractWidget> widgets = Screens.getButtons(screen);
+        List<AbstractWidget> widgets = Screens.getWidgets(screen);
         boolean alreadyPresent = widgets.stream()
             .anyMatch(widget -> widget instanceof Button button
                 && buttonLabel.equals(button.getMessage().getString()));
@@ -98,7 +98,7 @@ public class BetterControllerClientMod implements ClientModInitializer {
         Placement placement = resolvePlacement(screen, widgets, scaledWidth);
         Button button = Button.builder(
             buttonText,
-            widget -> client.setScreen(new BetterControllerSettingsScreen(screen, controllerRuntime))
+            widget -> client.gui.setScreen(new BetterControllerSettingsScreen(screen, controllerRuntime))
         ).bounds(placement.x(), placement.y(), placement.width(), BUTTON_HEIGHT).build();
         widgets.add(button);
     }

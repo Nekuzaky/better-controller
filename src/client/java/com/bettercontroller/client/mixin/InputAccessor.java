@@ -7,6 +7,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(ClientInput.class)
 public interface InputAccessor {
-    @Accessor("movementVector")
+    @Accessor("moveVector")
     void bettercontroller$setMovementVector(Vec2 movementVector);
 }

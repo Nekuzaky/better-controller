@@ -27,7 +27,7 @@ public final class VirtualKeyboardLauncher {
         if (client == null) {
             return false;
         }
-        if (client.screen == null || client.screen instanceof ControllerVirtualKeyboardScreen) {
+        if (client.gui.screen() == null || client.gui.screen() instanceof ControllerVirtualKeyboardScreen) {
             return false;
         }
 
@@ -36,14 +36,14 @@ public final class VirtualKeyboardLauncher {
             return false;
         }
 
-        Screen screen = client.screen;
+        Screen screen = client.gui.screen();
         EditBox targetField = resolveTargetTextField(screen);
         if (targetField == null) {
             return false;
         }
 
         lastLaunchTimestamp = now;
-        client.setScreen(new ControllerVirtualKeyboardScreen(screen, targetField));
+        client.gui.setScreen(new ControllerVirtualKeyboardScreen(screen, targetField));
         pendingOpen = false;
         pendingSince = 0L;
         return true;

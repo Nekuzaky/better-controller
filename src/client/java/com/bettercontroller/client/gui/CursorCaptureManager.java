@@ -23,7 +23,7 @@ public final class CursorCaptureManager {
             captured = false;
             return;
         }
-        long handle = client.getWindow().getHandle();
+        long handle = client.getWindow().handle();
         if (handle == 0L) {
             captured = false;
             return;
@@ -45,7 +45,7 @@ public final class CursorCaptureManager {
             return;
         }
         if (client != null && client.getWindow() != null) {
-            long handle = client.getWindow().getHandle();
+            long handle = client.getWindow().handle();
             if (handle != 0L) {
                 GLFW.glfwSetInputMode(handle, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
             }

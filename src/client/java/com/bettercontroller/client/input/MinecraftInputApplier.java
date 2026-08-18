@@ -49,7 +49,7 @@ public final class MinecraftInputApplier {
         if (deltaX == 0.0D && deltaY == 0.0D) {
             return;
         }
-        client.player.changeLookDirection(deltaX, deltaY);
+        client.player.turn(deltaX, deltaY);
     }
 
     public void releaseGameplayHolds(Minecraft client) {
@@ -129,20 +129,20 @@ public final class MinecraftInputApplier {
         int nextSlot = Math.floorMod(slot, 9);
         client.player.getInventory().setSelectedSlot(nextSlot);
         if (client.player.connection != null) {
-            client.player.connection.sendPacket(new ServerboundSetCarriedItemPacket(nextSlot));
+            client.player.connection.send(new ServerboundSetCarriedItemPacket(nextSlot));
         }
     }
 
     private static void openPauseMenu(Minecraft client) {
-        if (client.screen == null) {
-            client.setScreen(new PauseScreen(true));
+        if (client.gui.screen() == null) {
+            client.gui.setScreen(new PauseScreen(true));
         }
     }
 
     private static void tap(KeyMapping keyBinding) {
         InputConstants.Key boundKey = readBoundKey(keyBinding);
         if (boundKey != null) {
-            KeyMapping.onKeyPressed(boundKey);
+            KeyMapping.click(boundKey);
             return;
         }
         keyBinding.setDown(true);

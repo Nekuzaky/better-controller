@@ -48,10 +48,10 @@ public final class GuiNavigationController {
         Consumer<Boolean> virtualKeyboardRequest,
         boolean debugLogging
     ) {
-        if (client == null || client.screen == null || inputFrame == null) {
+        if (client == null || client.gui.screen() == null || inputFrame == null) {
             return;
         }
-        Screen screen = client.screen;
+        Screen screen = client.gui.screen();
         boolean screenChanged = screen != lastScreen;
         lastScreen = screen;
 
@@ -99,7 +99,7 @@ public final class GuiNavigationController {
      * proportionally to the stick magnitude so light deflection scrolls slowly, full deflection fast.
      */
     public void handleAnalogScroll(Minecraft client, float stickY) {
-        if (client == null || client.screen == null) {
+        if (client == null || client.gui.screen() == null) {
             lastAnalogScrollMs = 0L;
             return;
         }
@@ -115,7 +115,7 @@ public final class GuiNavigationController {
         }
         lastAnalogScrollMs = now;
 
-        Screen screen = client.screen;
+        Screen screen = client.gui.screen();
         double mouseX = screen.width / 2.0D;
         double mouseY = screen.height / 2.0D;
         double verticalAmount = stickY < 0.0F ? 1.0D : -1.0D;
@@ -287,8 +287,8 @@ public final class GuiNavigationController {
         if (current == null) {
             return true;
         }
-        int nextSlotId = SlotNavigator.findDirectionalSlot(slots, current.id, direction.x(), direction.y());
-        return nextSlotId != current.id;
+        int nextSlotId = SlotNavigator.findDirectionalSlot(slots, current.index, direction.x(), direction.y());
+        return nextSlotId != current.index;
     }
 
     private boolean canMoveWidgetSelection(Screen screen, List<GuiFocusElement> focusElements, NavigationDirection direction) {
@@ -340,11 +340,11 @@ public final class GuiNavigationController {
         if (screenChanged || SlotNavigator.findSlotById(slots, selectedHandledSlotId) == null) {
             Slot initial = SlotNavigator.resolveInitialSlot(client, slots);
             if (initial != null) {
-                selectedHandledSlotId = initial.id;
+                selectedHandledSlotId = initial.index;
             }
         }
         if (SlotNavigator.findSlotById(slots, selectedHandledSlotId) == null) {
-            selectedHandledSlotId = slots.get(0).id;
+            selectedHandledSlotId = slots.get(0).index;
         }
     }
 
@@ -458,7 +458,7 @@ public final class GuiNavigationController {
         Slot selectedSlot = SlotNavigator.findSlotById(slots, selectedHandledSlotId);
         if (selectedSlot == null) {
             selectedSlot = slots.get(0);
-            selectedHandledSlotId = selectedSlot.id;
+            selectedHandledSlotId = selectedSlot.index;
         }
         inventorySelectionState.setSelectedSlot(handledScreen, selectedSlot);
 
@@ -470,7 +470,7 @@ public final class GuiNavigationController {
         selectedSlot = SlotNavigator.findSlotById(slots, selectedHandledSlotId);
         if (selectedSlot == null) {
             selectedSlot = slots.get(0);
-            selectedHandledSlotId = selectedSlot.id;
+            selectedHandledSlotId = selectedSlot.index;
         }
         inventorySelectionState.setSelectedSlot(handledScreen, selectedSlot);
 
@@ -562,11 +562,11 @@ public final class GuiNavigationController {
 
     private void collectHandledSlots(AbstractContainerScreen<?> screen, List<Slot> buffer) {
         buffer.clear();
-        if (screen == null || screen.containerMenu == null) {
+        if (screen == null || screen.getMenu() == null) {
             return;
         }
-        for (Slot slot : screen.containerMenu.slots) {
-            if (slot != null && slot.isEnabled() && slot.canBeHighlighted()) {
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot != null && slot.isActive() && slot.isHighlightable()) {
                 buffer.add(slot);
             }
         }
@@ -576,8 +576,8 @@ public final class GuiNavigationController {
         if (!buffer.isEmpty()) {
             return;
         }
-        for (Slot slot : screen.containerMenu.slots) {
-            if (slot != null && slot.isEnabled()) {
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot != null && slot.isActive()) {
                 buffer.add(slot);
             }
         }
@@ -639,7 +639,7 @@ public final class GuiNavigationController {
 
     private static void triggerBack(Screen screen) {
         if (screen.shouldCloseOnEsc()) {
-            screen.close();
+            screen.onClose();
         } else {
             pressKey(screen, GLFW.GLFW_KEY_ESCAPE);
         }
@@ -649,8 +649,8 @@ public final class GuiNavigationController {
         if (client == null || client.player == null || client.gameMode == null || screen == null || slot == null) {
             return;
         }
-        client.gameMode.clickSlot(
-            screen.containerMenu.syncId,
+        client.gameMode.handleContainerInput(
+            screen.getMenu().containerId,
             slot.index,
             0,
             ContainerInput.PICKUP,

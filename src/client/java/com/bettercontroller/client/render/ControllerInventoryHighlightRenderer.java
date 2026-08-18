@@ -20,7 +20,7 @@ public final class ControllerInventoryHighlightRenderer {
         if (client == null || context == null || runtime == null) {
             return;
         }
-        if (!(client.screen instanceof AbstractContainerScreen<?> handledScreen)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> handledScreen)) {
             return;
         }
         if (runtime.latestSnapshot() == null || !runtime.latestSnapshot().isConnected()) {
@@ -32,7 +32,7 @@ public final class ControllerInventoryHighlightRenderer {
 
         ControllerInventorySelectionState selectionState = runtime.inventorySelectionState();
         Slot selectedSlot = selectionState.resolveSelectedSlot(handledScreen);
-        if (selectedSlot != null && selectedSlot.isEnabled()) {
+        if (selectedSlot != null && selectedSlot.isActive()) {
             renderSelectionHighlight(handledScreen, context, selectedSlot, selectionState);
         }
     }
@@ -64,14 +64,14 @@ public final class ControllerInventoryHighlightRenderer {
 
         context.fill(left - glowPad, top - glowPad, right + glowPad, bottom + glowPad, (outerAlpha << 24) | 0x30B8FF);
         context.fill(left, top, right, bottom, (innerAlpha << 24) | 0x58C8FF);
-        context.drawStrokedRectangle(
+        context.outline(
             left - grow,
             top - grow,
             SLOT_SIZE + (grow * 2),
             SLOT_SIZE + (grow * 2),
             (borderAlpha << 24) | 0xE7F7FF
         );
-        context.drawStrokedRectangle(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
+        context.outline(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
     }
 
     private static int handledScreenX(AbstractContainerScreen<?> screen) {

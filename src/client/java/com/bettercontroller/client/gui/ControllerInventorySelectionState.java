@@ -35,10 +35,10 @@ public final class ControllerInventorySelectionState {
     }
 
     public Slot resolveSelectedSlot(AbstractContainerScreen<?> screen) {
-        if (screen == null || trackedScreen != screen || selectedSlotId < 0 || screen.containerMenu == null) {
+        if (screen == null || trackedScreen != screen || selectedSlotId < 0 || screen.getMenu() == null) {
             return null;
         }
-        List<Slot> slots = screen.containerMenu.slots;
+        List<Slot> slots = screen.getMenu().slots;
         for (Slot slot : slots) {
             if (slot != null && slot.index == selectedSlotId) {
                 return slot;
