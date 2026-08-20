@@ -15,6 +15,7 @@ public final class BetterControllerMod {
     public static final String MOD_ID = "bettercontroller";
     public static final String MOD_NAME = "BetterController";
     public static final String VERSION = "0.3.0";
+    public static final String CONFIG_FILE_NAME = "bettercontroller.json";
 
     private static Logger logger;
 

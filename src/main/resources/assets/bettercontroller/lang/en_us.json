@@ -1,0 +1,20 @@
+{
+  "bettercontroller.ui.open_settings": "Controller Settings...",
+  "bettercontroller.status.disconnected": "Controller disconnected. Keyboard/mouse fallback restored.",
+  "bettercontroller.status.connected": "Controller connected: %s (%s)",
+  "bettercontroller.status.profile_switched": "Controller profile switched to %s.",
+  "bettercontroller.screen.settings.title": "BetterController Settings",
+  "bettercontroller.screen.virtual_keyboard.title": "Virtual Keyboard",
+  "bettercontroller.screen.virtual_keyboard.backspace": "Backspace",
+  "bettercontroller.screen.virtual_keyboard.delete": "Delete",
+  "bettercontroller.screen.virtual_keyboard.space": "Space",
+  "bettercontroller.screen.virtual_keyboard.cursor_left": "Cursor <",
+  "bettercontroller.screen.virtual_keyboard.cursor_right": "Cursor >",
+  "bettercontroller.screen.virtual_keyboard.cancel": "Cancel",
+  "bettercontroller.screen.virtual_keyboard.enter": "Enter",
+  "bettercontroller.screen.virtual_keyboard.cursor_pos": "Cursor %s/%s",
+  "bettercontroller.screen.virtual_keyboard.help": "A: Confirm key (hold for repeat)  B: Cancel",
+  "bettercontroller.screen.virtual_keyboard.lowercase": "Lowercase",
+  "bettercontroller.screen.virtual_keyboard.uppercase": "Uppercase",
+  "bettercontroller.screen.virtual_keyboard.selected_key": "Selected Key: %s"
+}

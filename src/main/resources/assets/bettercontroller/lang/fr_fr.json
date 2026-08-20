@@ -1,0 +1,20 @@
+{
+  "bettercontroller.ui.open_settings": "Paramètres Manette...",
+  "bettercontroller.status.disconnected": "Manette déconnectée. Retour clavier/souris activé.",
+  "bettercontroller.status.connected": "Manette connectée : %s (%s)",
+  "bettercontroller.status.profile_switched": "Profil manette basculé vers %s.",
+  "bettercontroller.screen.settings.title": "Paramètres BetterController",
+  "bettercontroller.screen.virtual_keyboard.title": "Clavier Virtuel",
+  "bettercontroller.screen.virtual_keyboard.backspace": "Retour",
+  "bettercontroller.screen.virtual_keyboard.delete": "Suppr.",
+  "bettercontroller.screen.virtual_keyboard.space": "Espace",
+  "bettercontroller.screen.virtual_keyboard.cursor_left": "Curseur <",
+  "bettercontroller.screen.virtual_keyboard.cursor_right": "Curseur >",
+  "bettercontroller.screen.virtual_keyboard.cancel": "Annuler",
+  "bettercontroller.screen.virtual_keyboard.enter": "Valider",
+  "bettercontroller.screen.virtual_keyboard.cursor_pos": "Curseur %s/%s",
+  "bettercontroller.screen.virtual_keyboard.help": "A : Confirmer la touche (maintenir pour répéter)  B : Annuler",
+  "bettercontroller.screen.virtual_keyboard.lowercase": "Minuscules",
+  "bettercontroller.screen.virtual_keyboard.uppercase": "Majuscules",
+  "bettercontroller.screen.virtual_keyboard.selected_key": "Touche sélectionnée : %s"
+}
