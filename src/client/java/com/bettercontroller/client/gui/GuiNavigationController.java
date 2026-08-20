@@ -625,6 +625,11 @@ public final class GuiNavigationController {
 
     private static void triggerConfirm(GuiFocusElement selected, Consumer<Boolean> virtualKeyboardRequest) {
         AbstractWidget widget = selected.widget();
+        // Sliders are driven with left/right. Confirming one would synthesise a click at its centre,
+        // and AbstractSliderButton.onClick sets the value from the click's X - so A would snap it to 50%.
+        if (widget instanceof AbstractSliderButton) {
+            return;
+        }
         if (widget instanceof AbstractButton pressableWidget) {
             pressableWidget.onPress(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
             return;

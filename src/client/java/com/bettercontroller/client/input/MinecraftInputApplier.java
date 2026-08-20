@@ -37,7 +37,6 @@ public final class MinecraftInputApplier {
         applyActionKey(client.options.keyUse, frame.useHeld(), false);
         setHold(client.options.keyPlayerList, frame.playerListHeld());
 
-        applyAnalogMovementVector(client, frame);
         applyTaps(client, frame);
         applyHotbar(client, frame);
     }
@@ -57,7 +56,6 @@ public final class MinecraftInputApplier {
             return;
         }
 
-        clearAnalogMovement(client);
         setHold(client.options.keyUp, false);
         setHold(client.options.keyDown, false);
         setHold(client.options.keyLeft, false);
@@ -94,23 +92,38 @@ public final class MinecraftInputApplier {
     }
 
     /**
-     * Writes the analog movement vector. Discrete forward/back/left/right state and jump come
-     * from the KeyMapping setHold calls -- KeyboardInput.tick() rebuilds input.playerInput from
-     * those keybindings every tick, and overwriting playerInput from here would mask the rising
-     * edge detection Minecraft uses for creative double-tap fly.
+     * Applies the stick deflection over the vector vanilla just derived from the key bindings.
+     *
+     * <p>Movement still goes through those key bindings, so rising-edge behaviour like creative
+     * double-tap fly keeps working. This only replaces the magnitude, and it has to run from
+     * KeyboardInputMixin rather than from the client tick: KeyboardInput.tick() rebuilds the vector
+     * from those same bindings and normalises it, which used to discard the stick's deflection
+     * entirely - every push past the deadzone moved at full speed.
+     *
+     * <p>Sideways is negated because vanilla builds Vec2(sideways, forward) with a positive value
+     * meaning left, while the stick reports positive to the right. Unlike 1.20.1 there is no
+     * slow-down to re-apply: LocalPlayer.aiStep scales the vector after this runs.
      */
-    private static void applyAnalogMovementVector(Minecraft client, GameplayInputFrame frame) {
-        if (client.player == null || client.player.input == null) {
+    public void applyAnalogMovement(ClientInput input, GameplayInputFrame frame) {
+        if (input == null || frame == null) {
             return;
         }
-        setMovementVector(client.player.input, frame.processedMoveX(), -frame.processedMoveY());
+        if (!shouldOverrideMovement(frame.processedMoveX(), frame.processedMoveY())) {
+            return;
+        }
+        setMovementVector(input, -frame.processedMoveX(), -frame.processedMoveY());
     }
 
-    private static void clearAnalogMovement(Minecraft client) {
-        if (client == null || client.player == null || client.player.input == null) {
-            return;
-        }
-        setMovementVector(client.player.input, 0.0F, 0.0F);
+    /**
+     * Whether the stick should take over the movement vanilla just computed.
+     *
+     * <p>This runs after {@code KeyboardInput.tick}, so writing unconditionally would overwrite the
+     * keyboard's own movement with the stick's - and a centred stick reads zero. A player with a
+     * controller plugged in but their hands on the keyboard would simply stop moving. Inside the
+     * deadzone the translator produces exactly zero, so an idle stick leaves vanilla alone.
+     */
+    static boolean shouldOverrideMovement(float moveX, float moveY) {
+        return moveX != 0.0F || moveY != 0.0F;
     }
 
     private static void cycleSlot(Minecraft client, int offset) {
