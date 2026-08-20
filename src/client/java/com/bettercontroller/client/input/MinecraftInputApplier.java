@@ -107,7 +107,22 @@ public final class MinecraftInputApplier {
         if (input == null || frame == null) {
             return;
         }
+        if (!shouldOverrideMovement(frame.processedMoveX(), frame.processedMoveY())) {
+            return;
+        }
         setMovementVector(input, -frame.processedMoveX(), -frame.processedMoveY(), slowDown, slowDownFactor);
+    }
+
+    /**
+     * Whether the stick should take over the movement vanilla just computed.
+     *
+     * <p>This runs after {@code KeyboardInput.tick}, so writing unconditionally would overwrite the
+     * keyboard's own movement with the stick's - and a centred stick reads zero. A player with a
+     * controller plugged in but their hands on the keyboard would simply stop moving. Inside the
+     * deadzone the translator produces exactly zero, so an idle stick leaves vanilla alone.
+     */
+    static boolean shouldOverrideMovement(float moveX, float moveY) {
+        return moveX != 0.0F || moveY != 0.0F;
     }
 
     private static void cycleSlot(MinecraftClient client, int offset) {
