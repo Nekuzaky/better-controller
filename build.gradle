@@ -1,109 +1,54 @@
-plugins {
-    id 'fabric-loom' version '1.15.5'
-    id 'maven-publish'
-    id 'jacoco'
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        // ForgeGradle 2.3 is the only line that still builds 1.12.2. It pins us to Gradle 4.x
+        // and Java 8, which is also what the game itself runs on.
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '2.3-SNAPSHOT', changing: true
+    }
 }
+
+apply plugin: 'net.minecraftforge.gradle.forge'
 
 version = project.mod_version
 group = project.maven_group
+archivesBaseName = project.archives_base_name
 
-base {
-    archivesName = project.archives_base_name
-}
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
 
-loom {
-    splitEnvironmentSourceSets()
-
-    mods {
-        "bettercontroller" {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
-        }
-    }
-}
-
-sourceSets {
-    test {
-        compileClasspath += sourceSets.main.output + sourceSets.client.output
-        runtimeClasspath += sourceSets.main.output + sourceSets.client.output
-    }
+minecraft {
+    version = "${project.minecraft_version}-${project.forge_version}"
+    runDir = 'run'
+    mappings = project.mappings_version
+    makeObfSourceJar = false
 }
 
 repositories {
     mavenCentral()
-    maven {
-        name = "Fabric"
-        url = uri("https://maven.fabricmc.net/")
-    }
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // GLFW is shipped inside the jar and loaded reflectively at runtime, never on Minecraft's
+    // classpath -- LWJGL 2 and LWJGL 3 both define org.lwjgl.PointerBuffer and they are not
+    // the same class. compileOnly keeps it off the compile classpath of everything else.
+    compileOnly 'org.lwjgl:lwjgl:3.3.3'
+    compileOnly 'org.lwjgl:lwjgl-glfw:3.3.3'
 
-    testImplementation platform("org.junit:junit-bom:5.12.2")
-    testImplementation "org.junit.jupiter:junit-jupiter"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testCompile 'junit:junit:4.13.2'
 }
 
 processResources {
-    inputs.property "version", project.version
+    inputs.property 'version', project.version
+    inputs.property 'mcversion', project.minecraft_version
 
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+        expand 'version': project.version, 'mcversion': project.minecraft_version
     }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
-    it.options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-processing', '-Xlint:-path'])
-}
-
-tasks.named("test", Test).configure {
-    useJUnitPlatform()
-    finalizedBy(jacocoTestReport)
-}
-
-jacocoTestReport {
-    dependsOn(test)
-
-    classDirectories.from(files(
-        sourceSets.client.output.classesDirs,
-        sourceSets.main.output.classesDirs
-    ))
-    sourceDirectories.from(files(
-        sourceSets.client.allSource.srcDirs,
-        sourceSets.main.allSource.srcDirs
-    ))
-
-    reports {
-        xml.required = true
-        html.required = true
-    }
-}
-
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
-    }
-}
-
-publishing {
-    publications {
-        create("mavenJava", MavenPublication) {
-            artifactId = project.archives_base_name
-            from components.java
-        }
-    }
-
-    repositories {
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
     }
 }

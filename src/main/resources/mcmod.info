@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "bettercontroller",
+    "name": "BetterController",
+    "description": "Play Minecraft with any gamepad. Analog look and movement, full GUI navigation, and a virtual keyboard for chat - in a deliberately small, client-side mod.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://www.curseforge.com/minecraft/mc-mods/bettercontroller",
+    "authorList": ["Nekuzaky"],
+    "credits": "",
+    "logoFile": "assets/bettercontroller/icon.png",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
