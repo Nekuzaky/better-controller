@@ -110,9 +110,12 @@ public final class MinecraftInputApplier {
         if (deltaX == 0.0D && deltaY == 0.0D) {
             return;
         }
-        // Entity.turn takes floats here and applies vanilla's own 0.15 factor internally, the same
-        // as the mouse path, so the tuning carries over from the other versions unchanged.
-        client.player.turn((float) deltaX, (float) deltaY);
+        // Entity.turn applies vanilla's own 0.15 factor internally here as everywhere else, so the
+        // tuning carries over - but the vertical sign does not. 1.12.2 does
+        // `rotationPitch -= pitch * 0.15` where every later version does `xRot += pitch * 0.15`,
+        // so the same delta looks up on one and down on the other. Negated here, at the point where
+        // the mod adapts to this version, rather than in the translator that all versions share.
+        client.player.turn((float) deltaX, (float) -deltaY);
     }
 
     public void releaseGameplayHolds(Minecraft client) {
