@@ -30,15 +30,27 @@ repositories {
     mavenCentral()
 }
 
+// LWJGL 3 rides along inside the jar and is loaded reflectively into a classloader of its own at
+// runtime. Deliberately NOT a compile dependency: GlfwBridge names no LWJGL type, and keeping the
+// classes off every compile classpath is what guarantees nothing can accidentally link against
+// LWJGL 3 and collide with the LWJGL 2 the game runs on.
+configurations {
+    glfwBundle
+}
+
 dependencies {
-    // GLFW is shipped inside the jar and loaded reflectively at runtime, never on Minecraft's
-    // classpath -- LWJGL 2 and LWJGL 3 both define org.lwjgl.PointerBuffer and they are not
-    // the same class. compileOnly keeps it off the compile classpath of everything else.
-    compileOnly 'org.lwjgl:lwjgl:3.3.3'
-    compileOnly 'org.lwjgl:lwjgl-glfw:3.3.3'
+    glfwBundle "org.lwjgl:lwjgl:${project.lwjgl_version}"
+    glfwBundle "org.lwjgl:lwjgl-glfw:${project.lwjgl_version}"
+    glfwBundle "org.lwjgl:lwjgl:${project.lwjgl_version}:natives-windows"
+    glfwBundle "org.lwjgl:lwjgl-glfw:${project.lwjgl_version}:natives-windows"
+    glfwBundle "org.lwjgl:lwjgl:${project.lwjgl_version}:natives-linux"
+    glfwBundle "org.lwjgl:lwjgl-glfw:${project.lwjgl_version}:natives-linux"
+    glfwBundle "org.lwjgl:lwjgl:${project.lwjgl_version}:natives-macos"
+    glfwBundle "org.lwjgl:lwjgl-glfw:${project.lwjgl_version}:natives-macos"
 
     testCompile 'junit:junit:4.13.2'
 }
+
 
 processResources {
     inputs.property 'version', project.version
@@ -50,5 +62,13 @@ processResources {
     }
     from(sourceSets.main.resources.srcDirs) {
         exclude 'mcmod.info'
+    }
+
+    // GlfwBridge unpacks these by name at first run; the version is stripped so it has one fixed
+    // set of names to look for. Done here rather than in the jar task so the development client
+    // gets them too - it runs off build/resources, never off the packaged jar.
+    into('bettercontroller-lib') {
+        from configurations.glfwBundle
+        rename { name -> name.replace("-${project.lwjgl_version}", '') }
     }
 }
