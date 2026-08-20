@@ -4,7 +4,6 @@ import com.bettercontroller.client.BetterControllerClientMod;
 import com.bettercontroller.client.input.ControllerRuntime;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

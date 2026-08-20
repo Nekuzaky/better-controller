@@ -9,7 +9,6 @@ import com.bettercontroller.client.render.ControllerInventoryHighlightRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
@@ -20,7 +19,6 @@ import net.minecraft.client.gui.screen.option.OptionsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
-
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;

@@ -1,7 +1,6 @@
 package com.bettercontroller.client.gui;
 
 import net.minecraft.client.MinecraftClient;
-
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
@@ -11,8 +10,6 @@ import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.PressableWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-
-
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import org.lwjgl.glfw.GLFW;

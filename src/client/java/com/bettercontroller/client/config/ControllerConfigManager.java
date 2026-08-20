@@ -3,7 +3,6 @@ package com.bettercontroller.client.config;
 import com.bettercontroller.BetterControllerMod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 import com.google.gson.stream.JsonReader;
 import net.fabricmc.loader.api.FabricLoader;
 

@@ -1,7 +1,6 @@
 package com.bettercontroller.client.input;
 
 import com.bettercontroller.BetterControllerMod;
-
 import com.bettercontroller.client.mixin.KeyBindingAccessor;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import net.minecraft.client.MinecraftClient;
