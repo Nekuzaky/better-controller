@@ -4,6 +4,27 @@ All notable changes to BetterController are documented in this file. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-19
+
+### Fixed
+- Analog movement never reached the player. The stick deflection was written
+  before `KeyboardInput.tick`, which recomputes both movement fields from the key
+  bindings, so the magnitude was discarded every tick and any push past the
+  deadzone moved at full walking speed. It is applied after that method now, and
+  only while the stick is actually deflected - writing unconditionally would have
+  replaced keyboard movement with a centred stick's zero.
+- The sideways axis was mirrored. Vanilla treats a positive value as strafing
+  left; the stick reports positive to the right. Invisible while the value was
+  being discarded.
+- Confirming a slider with `A` snapped it to 50%: the synthetic click landed at
+  the widget's centre and `SliderWidget` sets its value from the click position.
+  Sliders are adjusted with left/right, so confirm ignores them.
+- The settings screen drew no background on 1.20.1, leaving the options screen
+  visible underneath. 1.21 paints it from `Screen.render`; 1.20.1 leaves it to
+  each screen.
+- With a controller pinned but absent, the `F8` overlay blamed a missing GLFW
+  mapping instead of the pin.
+
 ## [0.2.0] - 2026-08-18
 
 Supports Minecraft 1.20.1, which needs Java 17. This is the version most large
