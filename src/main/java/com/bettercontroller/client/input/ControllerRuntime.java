@@ -3,6 +3,7 @@ package com.bettercontroller.client.input;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.config.ControllerConfigManager;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
+import com.bettercontroller.client.gui.GuiScreenNavigator;
 import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerPoller;
 import com.bettercontroller.client.polling.ControllerSnapshot;
@@ -11,9 +12,12 @@ import com.bettercontroller.client.polling.GlfwBridge;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.MovementInput;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Owns the controller loop: poll once per client tick, re-read the sticks once per rendered frame.
@@ -44,6 +48,7 @@ public final class ControllerRuntime {
     private final InputTranslator inputTranslator = new InputTranslator();
     private final MinecraftInputApplier inputApplier = new MinecraftInputApplier();
     private final ControllerGlyphService glyphService = new ControllerGlyphService();
+    private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator();
     private final Path configDirectory;
 
     private ControllerSnapshot latestSnapshot;
@@ -55,6 +60,7 @@ public final class ControllerRuntime {
     private float smoothedFrameSeconds;
     private boolean mappingsApplied;
     private boolean wasControllerConnected;
+    private boolean wasScreenOpen;
 
     public ControllerRuntime(GlfwBridge glfw, Path configDirectory) {
         this.glfw = glfw;
@@ -122,8 +128,21 @@ public final class ControllerRuntime {
         activeLayout = latestConfig.resolveLayout();
         wasControllerConnected = true;
 
-        // A screen is open, or there is no player to drive: hold nothing down.
-        if (client.currentScreen != null || client.player == null || client.world == null) {
+        // A screen is open: drop every gameplay hold and drive the menu instead.
+        if (client.currentScreen != null) {
+            wasScreenOpen = true;
+            latestFrame = inputTranslator.emptyFrame();
+            inputApplier.releaseGameplayHolds(client);
+            screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+            return;
+        }
+        if (wasScreenOpen) {
+            // Once on the way out, not every tick: this clears the selection and the repeat timers
+            // so the next menu opens fresh rather than inheriting the last one's state.
+            wasScreenOpen = false;
+            screenNavigator.onScreenClosed();
+        }
+        if (client.player == null || client.world == null) {
             latestFrame = inputTranslator.emptyFrame();
             inputApplier.releaseGameplayHolds(client);
             return;
@@ -172,6 +191,19 @@ public final class ControllerRuntime {
             latestFrame.lookDeltaX() * frameScale,
             latestFrame.lookDeltaY() * frameScale
         );
+    }
+
+    /** Forge fires this after a screen builds its buttons, and again whenever it rebuilds them. */
+    public void onScreenInit(GuiScreen screen, List<GuiButton> buttons) {
+        screenNavigator.onScreenInit(screen, buttons);
+    }
+
+    public void onScreenClosed() {
+        screenNavigator.onScreenClosed();
+    }
+
+    public void drawScreenSelection(GuiScreen screen) {
+        screenNavigator.drawSelection(screen);
     }
 
     public void shutdown() {

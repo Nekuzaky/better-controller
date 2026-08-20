@@ -2,6 +2,7 @@ package com.bettercontroller.client;
 
 import com.bettercontroller.client.input.ControllerRuntime;
 import net.minecraft.client.Minecraft;
+import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.InputUpdateEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -56,6 +57,23 @@ public final class BetterControllerEventHandler {
      * from the key bindings, so anything written earlier in the tick is discarded. That is exactly
      * the bug that made analog movement behave digitally on the other versions.
      */
+    /**
+     * Menu navigation binds here rather than reading {@code buttonList} itself: Forge hands over
+     * the live list, and fires again whenever a screen rebuilds its buttons - on resize, or when a
+     * settings page swaps its contents. Rebinding then is what stops the selection pointing at a
+     * control that no longer exists.
+     */
+    @SubscribeEvent
+    public void onGuiInit(GuiScreenEvent.InitGuiEvent.Post event) {
+        runtime.onScreenInit(event.getGui(), event.getButtonList());
+    }
+
+    /** Draws the selection border, after the screen has drawn its buttons. */
+    @SubscribeEvent
+    public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
+        runtime.drawScreenSelection(event.getGui());
+    }
+
     @SubscribeEvent
     public void onInputUpdate(InputUpdateEvent event) {
         Minecraft client = Minecraft.getMinecraft();
