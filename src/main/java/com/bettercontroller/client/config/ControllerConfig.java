@@ -33,8 +33,14 @@ public final class ControllerConfig {
     public float menuAxisThreshold = 0.35F;
     public float menuAxisPressThreshold = 0.40F;
     public float menuAxisReleaseThreshold = 0.20F;
-    public int menuInitialRepeatDelayMs = 140;
-    public int menuRepeatIntervalMs = 55;
+    /**
+     * Menu repeat timing. A 55ms interval is roughly 18 moves a second, which on menus of five or
+     * six entries overshoots before the eye has caught up - and the client tick is 50ms, so the
+     * selection was moving on very nearly every tick. Slowed to about six a second, which is what
+     * a console menu feels like.
+     */
+    public int menuInitialRepeatDelayMs = 300;
+    public int menuRepeatIntervalMs = 170;
 
     public boolean hudHintsEnabled = true;
     public boolean debugOverlayEnabled = true;

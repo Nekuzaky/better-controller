@@ -23,8 +23,8 @@ public final class GuiInputRouter {
         InputTranslator translator,
         boolean allowConfirmRepeat
     ) {
-        long initialDelayMs = clampLong(config.menuInitialRepeatDelayMs, 60L, 400L, 140L);
-        long repeatIntervalMs = clampLong(config.menuRepeatIntervalMs, 20L, 200L, 55L);
+        long initialDelayMs = clampLong(config.menuInitialRepeatDelayMs, 60L, 400L, 300L);
+        long repeatIntervalMs = clampLong(config.menuRepeatIntervalMs, 20L, 200L, 170L);
         if (allowConfirmRepeat) {
             initialDelayMs = Math.min(initialDelayMs, 150L);
             repeatIntervalMs = Math.min(repeatIntervalMs, 40L);

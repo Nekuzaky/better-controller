@@ -145,7 +145,7 @@ public final class VirtualKeyboardOverlay {
             openFor(client.currentScreen);
         }
 
-        GuiInputFrame frame = router.route(snapshot, config, layout, translator, true);
+        GuiInputFrame frame = router.route(snapshot, config, layout, translator, false);
         if (justOpened) {
             // Routing was still needed: it records what is held right now, so the next call only
             // reports genuine presses. The frame itself is dropped.
@@ -226,7 +226,9 @@ public final class VirtualKeyboardOverlay {
             }
         }
 
-        String hint = "A type   LB back   RB space   LT/RT " + (uppercase ? "lower" : "UPPER") + "   B send";
+        // Matches the default bindings: menu_page_prev/next are the triggers, menu_tab_prev/next
+        // the bumpers. Naming them the other way round would be worse than showing nothing.
+        String hint = "A type   LT back   RT space   LB/RB " + (uppercase ? "lower" : "UPPER") + "   B send";
         int hintWidth = client.fontRenderer.getStringWidth(hint);
         client.fontRenderer.drawString(
             hint,
