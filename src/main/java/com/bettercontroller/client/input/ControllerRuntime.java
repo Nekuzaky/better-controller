@@ -157,6 +157,13 @@ public final class ControllerRuntime {
         }
 
         GameplayInputFrame frame = inputTranslator.translate(latestSnapshot, latestConfig, activeLayout);
+        if (frame.chatTap()) {
+            // Opening chat from the controller is the request for a keyboard. Pressing T is not:
+            // a player already at the keyboard does not want half the screen covered by a worse
+            // one. The chat screen itself opens a tick or two later, which is why this is a
+            // request rather than a direct open.
+            virtualKeyboard.requestOpen();
+        }
         inputApplier.applyGameplayFrame(client, frame);
         latestFrame = frame;
     }

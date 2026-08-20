@@ -57,10 +57,16 @@ public final class VirtualKeyboardOverlay {
 
     private final GuiInputRouter router = new GuiInputRouter();
 
+    /** How long a request to open stays good, in case the text screen never arrives. */
+    private static final long PENDING_TIMEOUT_MS = 3500L;
+
     private GuiScreen boundScreen;
     private boolean uppercase;
     private int row;
     private int column;
+    private boolean pendingOpen;
+    private long pendingSince;
+    private boolean justOpened;
 
     private static Method keyTyped;
     private static boolean reflectionWarned;
@@ -78,16 +84,36 @@ public final class VirtualKeyboardOverlay {
         return findFocusedTextField(screen) != null;
     }
 
+    /**
+     * Asks for the keyboard on the next text screen to appear.
+     *
+     * <p>The keyboard is never summoned on its own. Opening chat from the controller asks for one;
+     * opening it by pressing T does not, because a player already at the keyboard does not want
+     * half the screen covered by a worse one.
+     */
+    public void requestOpen() {
+        pendingOpen = true;
+        pendingSince = System.currentTimeMillis();
+    }
+
     public void openFor(GuiScreen screen) {
         boundScreen = screen;
         uppercase = false;
         row = 1;
         column = 0;
+        pendingOpen = false;
+        // The button that opened the screen is very likely still held. pulse() reads "pressed with
+        // no previous state" as a fresh press, so without swallowing one frame the keyboard would
+        // act on the press that summoned it - typing, or sending the line, before the player has
+        // touched anything.
+        justOpened = true;
         router.reset();
     }
 
     public void close() {
         boundScreen = null;
+        pendingOpen = false;
+        justOpened = false;
         router.reset();
     }
 
@@ -112,7 +138,7 @@ public final class VirtualKeyboardOverlay {
         }
 
         if (boundScreen != client.currentScreen) {
-            if (!isTextScreen(client.currentScreen)) {
+            if (!hasLiveRequest() || !isTextScreen(client.currentScreen)) {
                 close();
                 return false;
             }
@@ -120,6 +146,12 @@ public final class VirtualKeyboardOverlay {
         }
 
         GuiInputFrame frame = router.route(snapshot, config, layout, translator, true);
+        if (justOpened) {
+            // Routing was still needed: it records what is held right now, so the next call only
+            // reports genuine presses. The frame itself is dropped.
+            justOpened = false;
+            return true;
+        }
         if (!frame.anyNavigation()) {
             return true;
         }
@@ -202,6 +234,11 @@ public final class VirtualKeyboardOverlay {
             panelTop + panelHeight - PANEL_PADDING - 8,
             0xFFAAAAAA
         );
+    }
+
+    /** A request expires, so a chat button pressed minutes ago never opens a keyboard later. */
+    private boolean hasLiveRequest() {
+        return pendingOpen && (System.currentTimeMillis() - pendingSince) < PENDING_TIMEOUT_MS;
     }
 
     private String currentKey() {
