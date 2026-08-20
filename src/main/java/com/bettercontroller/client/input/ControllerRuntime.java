@@ -4,6 +4,7 @@ import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.config.ControllerConfigManager;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
 import com.bettercontroller.client.gui.GuiScreenNavigator;
+import com.bettercontroller.client.gui.VirtualKeyboardOverlay;
 import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerPoller;
 import com.bettercontroller.client.polling.ControllerSnapshot;
@@ -49,6 +50,7 @@ public final class ControllerRuntime {
     private final MinecraftInputApplier inputApplier = new MinecraftInputApplier();
     private final ControllerGlyphService glyphService = new ControllerGlyphService();
     private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator();
+    private final VirtualKeyboardOverlay virtualKeyboard = new VirtualKeyboardOverlay();
     private final Path configDirectory;
 
     private ControllerSnapshot latestSnapshot;
@@ -133,7 +135,13 @@ public final class ControllerRuntime {
             wasScreenOpen = true;
             latestFrame = inputTranslator.emptyFrame();
             inputApplier.releaseGameplayHolds(client);
-            screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+            // The keyboard takes precedence while a text field has focus, and says so - otherwise
+            // the same stick push would both move a key and move the menu selection.
+            boolean typing = virtualKeyboard.onScreenTick(
+                client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+            if (!typing) {
+                screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+            }
             return;
         }
         if (wasScreenOpen) {
@@ -200,10 +208,12 @@ public final class ControllerRuntime {
 
     public void onScreenClosed() {
         screenNavigator.onScreenClosed();
+        virtualKeyboard.close();
     }
 
     public void drawScreenSelection(GuiScreen screen) {
         screenNavigator.drawSelection(screen);
+        virtualKeyboard.draw(Minecraft.getMinecraft(), screen);
     }
 
     public void shutdown() {
