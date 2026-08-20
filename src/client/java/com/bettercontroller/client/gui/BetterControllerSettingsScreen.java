@@ -102,6 +102,9 @@ public final class BetterControllerSettingsScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 1.20.1's Screen.render only draws the widgets; painting the background is each screen's
+        // own job. Without this the previous screen stays visible underneath.
+        this.renderBackground(context);
         super.render(context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 18, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(
