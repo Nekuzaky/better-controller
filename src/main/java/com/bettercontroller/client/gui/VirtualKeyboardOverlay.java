@@ -110,11 +110,23 @@ public final class VirtualKeyboardOverlay {
         router.reset();
     }
 
+    /**
+     * Dismisses the keyboard. Deliberately leaves any pending request alone: closing a keyboard
+     * and giving up on one that was asked for are different things, and conflating them is what
+     * made the keyboard stop appearing at all. The chat screen does not necessarily report a
+     * focused text field on the very tick it opens, and treating that as "never mind" threw away
+     * the request a tick before it would have been honoured.
+     */
     public void close() {
         boundScreen = null;
-        pendingOpen = false;
         justOpened = false;
         router.reset();
+    }
+
+    /** Gives up on a request as well - used when the player leaves screens entirely. */
+    public void reset() {
+        pendingOpen = false;
+        close();
     }
 
     /**
@@ -129,11 +141,11 @@ public final class VirtualKeyboardOverlay {
         InputTranslator translator
     ) {
         if (client == null || client.currentScreen == null) {
-            close();
+            reset();
             return false;
         }
         if (config == null || !config.virtualKeyboardEnabled) {
-            close();
+            reset();
             return false;
         }
 

@@ -21,7 +21,11 @@ sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = co
 
 minecraft {
     version = "${project.minecraft_version}-${project.forge_version}"
-    runDir = 'run'
+    // Each version branch gets its own run directory. They were sharing one, and a modern
+    // options.txt is unreadable to 1.12.2 - 66 options were being skipped every launch, every
+    // key binding falling back to its default - while 1.12.2 wrote it back in a format the newer
+    // branches cannot read either.
+    runDir = "run-${project.minecraft_version}"
     mappings = project.mappings_version
     makeObfSourceJar = false
 }

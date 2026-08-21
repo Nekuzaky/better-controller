@@ -3,6 +3,7 @@ package com.bettercontroller.client.input;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.config.ControllerConfigManager;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
+import com.bettercontroller.client.gui.ContainerNavigator;
 import com.bettercontroller.client.gui.GuiScreenNavigator;
 import com.bettercontroller.client.gui.VirtualKeyboardOverlay;
 import com.bettercontroller.client.polling.ControllerMappings;
@@ -51,6 +52,7 @@ public final class ControllerRuntime {
     private final MinecraftInputApplier inputApplier = new MinecraftInputApplier();
     private final ControllerGlyphService glyphService = new ControllerGlyphService();
     private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator();
+    private final ContainerNavigator containerNavigator = new ContainerNavigator();
     private final VirtualKeyboardOverlay virtualKeyboard = new VirtualKeyboardOverlay();
     private final ControllerDebugOverlay debugOverlay = new ControllerDebugOverlay();
     private final Path configDirectory;
@@ -137,11 +139,15 @@ public final class ControllerRuntime {
             wasScreenOpen = true;
             latestFrame = inputTranslator.emptyFrame();
             inputApplier.releaseGameplayHolds(client);
-            // The keyboard takes precedence while a text field has focus, and says so - otherwise
-            // the same stick push would both move a key and move the menu selection.
-            boolean typing = virtualKeyboard.onScreenTick(
+            // Exactly one of these drives the screen, and each says whether it took the tick.
+            // Otherwise a single stick push would move a key, a slot and a button at once.
+            boolean handled = virtualKeyboard.onScreenTick(
                 client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
-            if (!typing) {
+            if (!handled) {
+                handled = containerNavigator.onScreenTick(
+                    client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+            }
+            if (!handled) {
                 screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
             }
             return;
@@ -217,11 +223,13 @@ public final class ControllerRuntime {
 
     public void onScreenClosed() {
         screenNavigator.onScreenClosed();
-        virtualKeyboard.close();
+        virtualKeyboard.reset();
+        containerNavigator.close();
     }
 
     public void drawScreenSelection(GuiScreen screen) {
         screenNavigator.drawSelection(screen);
+        containerNavigator.draw(Minecraft.getMinecraft(), screen);
         virtualKeyboard.draw(Minecraft.getMinecraft(), screen);
     }
 
