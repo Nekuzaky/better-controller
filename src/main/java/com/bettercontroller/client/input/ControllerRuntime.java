@@ -10,6 +10,7 @@ import com.bettercontroller.client.polling.ControllerPoller;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.polling.ControllerType;
 import com.bettercontroller.client.polling.GlfwBridge;
+import com.bettercontroller.client.render.ControllerDebugOverlay;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.Minecraft;
@@ -51,6 +52,7 @@ public final class ControllerRuntime {
     private final ControllerGlyphService glyphService = new ControllerGlyphService();
     private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator();
     private final VirtualKeyboardOverlay virtualKeyboard = new VirtualKeyboardOverlay();
+    private final ControllerDebugOverlay debugOverlay = new ControllerDebugOverlay();
     private final Path configDirectory;
 
     private ControllerSnapshot latestSnapshot;
@@ -223,6 +225,14 @@ public final class ControllerRuntime {
         virtualKeyboard.draw(Minecraft.getMinecraft(), screen);
     }
 
+
+    public void renderDebugOverlay(Minecraft client) {
+        debugOverlay.render(client, this);
+    }
+
+    public void toggleDebugOverlay() {
+        debugOverlay.toggleVisibility();
+    }
     public void shutdown() {
         if (glfw != null) {
             glfw.shutdown();

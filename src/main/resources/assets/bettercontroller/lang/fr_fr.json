@@ -1,4 +1,6 @@
 {
+  "key.categories.bettercontroller": "BetterController",
+  "key.bettercontroller.debug_overlay": "Overlay de diagnostic manette",
   "bettercontroller.ui.open_settings": "Paramètres Manette...",
   "bettercontroller.status.disconnected": "Manette déconnectée. Retour clavier/souris activé.",
   "bettercontroller.status.connected": "Manette connectée : %s (%s)",

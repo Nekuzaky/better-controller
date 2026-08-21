@@ -2,28 +2,32 @@ package com.bettercontroller.client;
 
 import com.bettercontroller.client.input.ControllerRuntime;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.InputUpdateEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.InputEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * Where the mod meets the game.
  *
- * <p>The Fabric versions need mixins for all three of these hooks. Forge 1.12.2 already publishes
- * every one of them as an event, so this port has no mixins at all - which also means nothing here
- * can conflict with another mod's injection, a real concern on a version whose big packs run
- * hundreds of mods.
+ * <p>The Fabric versions need mixins for every hook below. Forge 1.12.2 already publishes them all
+ * as events, so this port injects into nothing - which also means nothing here can conflict with
+ * another mod's injection, a real concern on a version whose big packs run hundreds of mods.
  */
 @SideOnly(Side.CLIENT)
 public final class BetterControllerEventHandler {
 
     private final ControllerRuntime runtime;
+    private final KeyBinding debugOverlayKey;
 
-    public BetterControllerEventHandler(ControllerRuntime runtime) {
+    public BetterControllerEventHandler(ControllerRuntime runtime, KeyBinding debugOverlayKey) {
         this.runtime = runtime;
+        this.debugOverlayKey = debugOverlayKey;
     }
 
     /** Buttons, triggers and hotbar, once per tick. */
@@ -57,6 +61,15 @@ public final class BetterControllerEventHandler {
      * from the key bindings, so anything written earlier in the tick is discarded. That is exactly
      * the bug that made analog movement behave digitally on the other versions.
      */
+    @SubscribeEvent
+    public void onInputUpdate(InputUpdateEvent event) {
+        Minecraft client = Minecraft.getMinecraft();
+        if (client.player == null || event.getEntityPlayer() != client.player) {
+            return;
+        }
+        runtime.applyAnalogMovement(event.getMovementInput(), event.getMovementInput().sneak);
+    }
+
     /**
      * Menu navigation binds here rather than reading {@code buttonList} itself: Forge hands over
      * the live list, and fires again whenever a screen rebuilds its buttons - on resize, or when a
@@ -68,18 +81,31 @@ public final class BetterControllerEventHandler {
         runtime.onScreenInit(event.getGui(), event.getButtonList());
     }
 
-    /** Draws the selection border, after the screen has drawn its buttons. */
+    /** Draws the selection border and the virtual keyboard, above whatever the screen drew. */
     @SubscribeEvent
     public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
         runtime.drawScreenSelection(event.getGui());
     }
 
+    /**
+     * The F8 diagnostic panel, drawn over the HUD.
+     *
+     * <p>Keyed on TEXT rather than ALL so it draws once per frame: ALL fires for the overlay pass
+     * as a whole and again for each element, which would stack the panel on itself a dozen times.
+     */
     @SubscribeEvent
-    public void onInputUpdate(InputUpdateEvent event) {
-        Minecraft client = Minecraft.getMinecraft();
-        if (client.player == null || event.getEntityPlayer() != client.player) {
+    public void onRenderOverlay(RenderGameOverlayEvent.Post event) {
+        if (event.getType() != RenderGameOverlayEvent.ElementType.TEXT) {
             return;
         }
-        runtime.applyAnalogMovement(event.getMovementInput(), event.getMovementInput().sneak);
+        runtime.renderDebugOverlay(Minecraft.getMinecraft());
+    }
+
+    /** Toggles the panel. A real key binding, so it shows up in Controls and can be rebound. */
+    @SubscribeEvent
+    public void onKeyInput(InputEvent.KeyInputEvent event) {
+        if (debugOverlayKey != null && debugOverlayKey.isPressed()) {
+            runtime.toggleDebugOverlay();
+        }
     }
 }

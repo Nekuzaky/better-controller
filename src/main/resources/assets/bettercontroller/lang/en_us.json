@@ -1,4 +1,6 @@
 {
+  "key.categories.bettercontroller": "BetterController",
+  "key.bettercontroller.debug_overlay": "Controller debug overlay",
   "bettercontroller.ui.open_settings": "Controller Settings...",
   "bettercontroller.status.disconnected": "Controller disconnected. Keyboard/mouse fallback restored.",
   "bettercontroller.status.connected": "Controller connected: %s (%s)",
