@@ -52,7 +52,8 @@ dependencies {
     glfwBundle "org.lwjgl:lwjgl:${project.lwjgl_version}:natives-macos"
     glfwBundle "org.lwjgl:lwjgl-glfw:${project.lwjgl_version}:natives-macos"
 
-    testCompile 'junit:junit:4.13.2'
+    testCompile 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
 }
 
 
@@ -75,4 +76,12 @@ processResources {
         from configurations.glfwBundle
         rename { name -> name.replace("-${project.lwjgl_version}", '') }
     }
+}
+
+// The test sources are shared verbatim with the other version branches, so they stay on JUnit 5
+// rather than being rewritten for 4 - JUnit 4 puts the assertion message first and 5 puts it last,
+// and rewriting every call would make these files diverge for no gain. Gradle 4.6 onwards can run
+// the JUnit 5 platform directly.
+test {
+    useJUnitPlatform()
 }

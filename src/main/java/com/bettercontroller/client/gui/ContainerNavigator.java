@@ -26,7 +26,7 @@ import java.util.List;
  */
 public final class ContainerNavigator {
 
-    private static final int HIGHLIGHT_COLOR = 0x80FFC66B;
+    private static final int HIGHLIGHT_COLOR = 0xFFFFC66B;
     private static final int SLOT_SIZE = 16;
 
     private final GuiInputRouter router = new GuiInputRouter();
@@ -118,26 +118,58 @@ public final class ContainerNavigator {
             // Right click: take half a stack, or place one item.
             click(client, screen, selected, 1, ClickType.PICKUP);
         }
-        if (frame.back()) {
+        if (frame.back() && client.player != null) {
+            // Through the player rather than displayGuiScreen(null): the server has to be told the
+            // container was closed, or it keeps the window open and the next one desynchronises.
             client.player.closeScreen();
             close();
         }
         return true;
     }
 
-    /** Draws the selection over the slot, under the item so the icon stays readable. */
+    /**
+     * Draws the selection as a border rather than a wash.
+     *
+     * <p>This runs on DrawScreenEvent.Post, which is after the screen has drawn its items - so a
+     * filled rectangle sits on top of the icon it is meant to point at. A border leaves the item
+     * untouched.
+     */
     public void draw(Minecraft client, GuiScreen screen) {
-        if (client == null || screen != boundScreen || boundScreen == null) {
+        if (client == null || boundScreen == null || screen != boundScreen) {
             return;
         }
-        Slot selected = findSlot(usableSlots(boundScreen), selectedSlotNumber);
+        Slot selected = selectedSlot();
         if (selected == null) {
             return;
         }
 
-        int left = guiLeft(boundScreen) + selected.xPos;
-        int top = guiTop(boundScreen) + selected.yPos;
-        Gui.drawRect(left, top, left + SLOT_SIZE, top + SLOT_SIZE, HIGHLIGHT_COLOR);
+        int left = guiLeft(boundScreen) + selected.xPos - 1;
+        int top = guiTop(boundScreen) + selected.yPos - 1;
+        int right = left + SLOT_SIZE + 2;
+        int bottom = top + SLOT_SIZE + 2;
+
+        Gui.drawRect(left, top, right, top + 1, HIGHLIGHT_COLOR);
+        Gui.drawRect(left, bottom - 1, right, bottom, HIGHLIGHT_COLOR);
+        Gui.drawRect(left, top, left + 1, bottom, HIGHLIGHT_COLOR);
+        Gui.drawRect(right - 1, top, right, bottom, HIGHLIGHT_COLOR);
+    }
+
+    /**
+     * The selected slot, read straight off the container.
+     *
+     * <p>Deliberately not routed through {@link #usableSlots}: this runs every frame, and building
+     * a list to find one element would allocate for nothing sixty times a second.
+     */
+    private Slot selectedSlot() {
+        if (boundScreen.inventorySlots == null || boundScreen.inventorySlots.inventorySlots == null) {
+            return null;
+        }
+        for (Slot slot : boundScreen.inventorySlots.inventorySlots) {
+            if (slot != null && slot.isEnabled() && slot.slotNumber == selectedSlotNumber) {
+                return slot;
+            }
+        }
+        return null;
     }
 
     private static List<Slot> usableSlots(GuiContainer screen) {

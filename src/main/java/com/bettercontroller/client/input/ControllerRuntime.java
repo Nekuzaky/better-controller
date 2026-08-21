@@ -153,10 +153,12 @@ public final class ControllerRuntime {
             return;
         }
         if (wasScreenOpen) {
-            // Once on the way out, not every tick: this clears the selection and the repeat timers
-            // so the next menu opens fresh rather than inheriting the last one's state.
+            // Once on the way out, not every tick: this clears the selections and the repeat
+            // timers so the next screen opens fresh rather than inheriting the last one's state.
+            // All three, not just the button navigator - the other two were left holding a
+            // reference to a dead screen, and through it its container, slots and item stacks.
             wasScreenOpen = false;
-            screenNavigator.onScreenClosed();
+            onScreenClosed();
         }
         if (client.player == null || client.world == null) {
             latestFrame = inputTranslator.emptyFrame();

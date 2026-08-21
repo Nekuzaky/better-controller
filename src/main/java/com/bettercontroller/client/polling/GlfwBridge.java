@@ -99,7 +99,12 @@ public final class GlfwBridge {
             return instance;
         }
         try {
-            URL[] urls = unpackLibraries(modConfigDirectory.resolve("lib"));
+            // Versioned so updating the mod cannot leave the previous release's GLFW in place.
+            // Unpacked files are skipped when they already exist - reachable, since a second game
+            // instance may hold the jars open and could not overwrite them anyway - so without the
+            // version in the path a player who updated would silently keep running the old library.
+            URL[] urls = unpackLibraries(
+                modConfigDirectory.resolve("lib").resolve(BetterControllerMod.VERSION));
             if (urls.length == 0) {
                 BetterControllerMod.logger().warn(
                     "BetterController: no bundled GLFW libraries in the mod jar; controller support is off.");
