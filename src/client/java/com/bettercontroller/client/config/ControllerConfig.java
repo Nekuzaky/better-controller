@@ -1,5 +1,8 @@
 package com.bettercontroller.client.config;
 
+import com.bettercontroller.client.polling.ControllerAxis;
+import com.bettercontroller.client.polling.ControllerButton;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -151,6 +154,54 @@ public final class ControllerConfig {
         return new ResolvedLayout(axes, bindings);
     }
 
+    /**
+     * Every configured token this build cannot read, as "where: token".
+     *
+     * <p>Numbers in this file are clamped, range-checked and migrated, but a button or axis name
+     * got none of that: an unrecognized token resolves to null and the binding is skipped in
+     * silence. The README sends people here to edit anything the sliders do not cover, so a
+     * "RIGHT_BUMBER" buys them a dead button and no way to find out why. The caller logs these.
+     */
+    public List<String> unreadableTokens() {
+        List<String> problems = new ArrayList<>();
+
+        if (axes != null) {
+            for (String axisKey : AxisBindings.KEYS) {
+                String token = axes.axisToken(axisKey);
+                if (token != null && !token.isBlank() && readableAxis(token) == null) {
+                    problems.add("axes." + axisKey + ": " + token);
+                }
+            }
+        }
+
+        if (bindings != null) {
+            for (Map.Entry<String, List<String>> binding : bindings.entrySet()) {
+                List<String> tokens = binding.getValue();
+                if (tokens == null) {
+                    continue;
+                }
+                for (String token : tokens) {
+                    if (token == null || token.isBlank() || readable(token)) {
+                        continue;
+                    }
+                    problems.add(binding.getKey() + ": " + token);
+                }
+            }
+        }
+
+        return problems;
+    }
+
+    private static boolean readable(String token) {
+        String stripped = token.startsWith("-") ? token.substring(1) : token;
+        return ControllerButton.fromTokenOrNull(stripped) != null || readableAxis(stripped) != null;
+    }
+
+    private static ControllerAxis readableAxis(String token) {
+        String stripped = token.startsWith("-") ? token.substring(1) : token;
+        return ControllerAxis.fromTokenOrNull(stripped);
+    }
+
     public static ControllerConfig createDefault() {
         return new ControllerConfig();
     }
@@ -268,6 +319,8 @@ public final class ControllerConfig {
     }
 
     public static final class AxisBindings {
+        static final String[] KEYS = {"move_x", "move_y", "look_x", "look_y"};
+
         public String move_x = "LEFT_X";
         public String move_y = "LEFT_Y";
         public String look_x = "RIGHT_X";
