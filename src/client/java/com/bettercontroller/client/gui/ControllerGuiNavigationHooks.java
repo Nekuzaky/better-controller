@@ -14,6 +14,8 @@ public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
     private final GuiInputRouter inputRouter = new GuiInputRouter();
     private final InputTranslator inputTranslator;
     private final Consumer<ControllerConfig> virtualKeyboardRequest;
+    /** Whether the last controller tick had a screen open; see {@link #onWorldTick}. */
+    private boolean inScreen;
 
     public ControllerGuiNavigationHooks(
         InputTranslator inputTranslator,
@@ -39,6 +41,7 @@ public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
             return;
         }
 
+        inScreen = true;
         boolean allowConfirmRepeat = client.gui.screen() instanceof ControllerVirtualKeyboardScreen;
         GuiInputFrame frame = inputRouter.route(snapshot, config, layout, inputTranslator, allowConfirmRepeat);
 
@@ -80,7 +83,22 @@ public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
         return inventorySelectionState;
     }
 
+    /**
+     * Called on every tick spent in the world. On the first one after a screen closes, lets go of
+     * that screen's state so its widgets and slots are not kept alive for the rest of the session.
+     * The router's memory of pressed buttons is deliberately kept: cleared, a button still held
+     * when the next screen opens would read there as a fresh press.
+     */
+    public void onWorldTick() {
+        if (!inScreen) {
+            return;
+        }
+        inScreen = false;
+        navigationController.forgetScreen();
+    }
+
     public void reset() {
+        inScreen = false;
         inputRouter.reset();
         navigationController.reset();
     }

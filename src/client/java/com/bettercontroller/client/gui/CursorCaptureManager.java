@@ -40,6 +40,15 @@ public final class CursorCaptureManager {
         }
     }
 
+    /**
+     * Drops the captured flag without touching GLFW, for when Minecraft has already taken the
+     * cursor back by closing the screen. Left set, the next screen would believe the cursor is
+     * still hidden and leave it showing.
+     */
+    public void forget() {
+        captured = false;
+    }
+
     public void release(Minecraft client) {
         if (!captured) {
             return;

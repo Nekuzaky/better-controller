@@ -83,13 +83,26 @@ public final class GuiNavigationController {
     }
 
     public void reset() {
+        // Released before forgetScreen(), which would otherwise clear the flag release() checks.
+        cursorCapture.release(Minecraft.getInstance());
+        forgetScreen();
+        lastAnalogScrollMs = 0L;
+    }
+
+    /**
+     * Lets go of the screen that just closed - the screen itself, its widgets and its slots - so
+     * none of it stays reachable while the player is in the world. The cursor is only forgotten,
+     * not released: Minecraft has already locked it for gameplay, and showing it would break that.
+     */
+    public void forgetScreen() {
         lastScreen = null;
+        focusElementsBuffer.clear();
+        handledSlotsBuffer.clear();
         selectedIndex = -1;
         selectedHandledSlotId = -1;
         preferListFocus = false;
-        lastAnalogScrollMs = 0L;
         navigationMode = NavigationMode.WIDGETS;
-        cursorCapture.release(Minecraft.getInstance());
+        cursorCapture.forget();
         inventorySelectionState.clear();
     }
 
