@@ -6,6 +6,7 @@ import com.bettercontroller.client.polling.ControllerButton;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 
@@ -19,7 +20,15 @@ public final class InputTranslator {
         GameplayAction.HOTBAR_7, GameplayAction.HOTBAR_8, GameplayAction.HOTBAR_9
     };
 
+    private static final GameplayAction[] ACTIONS = GameplayAction.values();
+    /** Holds that share a button with a menu action by default: A confirms, the triggers page. */
+    private static final GameplayAction[] MENU_SHARED_HOLDS = {
+        GameplayAction.JUMP, GameplayAction.ATTACK, GameplayAction.USE
+    };
+
     private final EnumMap<GameplayAction, Boolean> previousActionStates = new EnumMap<>(GameplayAction.class);
+    /** Holds still down from a screen; they read as released until the button actually is. */
+    private final EnumSet<GameplayAction> holdsCarriedFromScreen = EnumSet.noneOf(GameplayAction.class);
     private final GameplayInputFrame reusableFrame = new GameplayInputFrame();
     private float smoothedLookX;
     private float smoothedLookY;
@@ -96,8 +105,43 @@ public final class InputTranslator {
 
     public void resetState() {
         previousActionStates.clear();
+        holdsCarriedFromScreen.clear();
         smoothedLookX = 0.0F;
         smoothedLookY = 0.0F;
+    }
+
+    /**
+     * Called on every tick gameplay input is not being read - a screen is open, or there is no
+     * world yet. Forgetting what was pressed is not enough: B pressed to close the inventory is
+     * still down on the first tick back in the world, reads as a fresh press and drops the held
+     * item, and A held on "Back to Game" jumps. So this records what is down right now. Taps then
+     * only fire on a press that starts in the world, and a menu-shared hold that is already down
+     * stays off until its button is let go.
+     */
+    public void rememberHeldWhileIdle(
+        ControllerSnapshot snapshot,
+        ControllerConfig config,
+        ControllerConfig.ResolvedLayout layout
+    ) {
+        smoothedLookX = 0.0F;
+        smoothedLookY = 0.0F;
+        if (snapshot == null || config == null || layout == null) {
+            previousActionStates.clear();
+            holdsCarriedFromScreen.clear();
+            return;
+        }
+        for (GameplayAction action : ACTIONS) {
+            if (!isMenuAction(action)) {
+                previousActionStates.put(action, isActionPressed(snapshot, config, layout, action));
+            }
+        }
+        for (GameplayAction action : MENU_SHARED_HOLDS) {
+            if (isActionPressed(snapshot, config, layout, action)) {
+                holdsCarriedFromScreen.add(action);
+            } else {
+                holdsCarriedFromScreen.remove(action);
+            }
+        }
     }
 
     private void translateMovement(
@@ -170,13 +214,34 @@ public final class InputTranslator {
         GameplayInputFrame frame
     ) {
         frame.setHolds(
-            isActionPressed(snapshot, config, layout, GameplayAction.JUMP),
+            heldUnlessCarried(snapshot, config, layout, GameplayAction.JUMP),
             isActionPressed(snapshot, config, layout, GameplayAction.SPRINT),
             isActionPressed(snapshot, config, layout, GameplayAction.SNEAK),
-            isActionPressed(snapshot, config, layout, GameplayAction.ATTACK),
-            isActionPressed(snapshot, config, layout, GameplayAction.USE),
+            heldUnlessCarried(snapshot, config, layout, GameplayAction.ATTACK),
+            heldUnlessCarried(snapshot, config, layout, GameplayAction.USE),
             isActionPressed(snapshot, config, layout, GameplayAction.PLAYER_LIST)
         );
+    }
+
+    /**
+     * A hold that was already down when the screen closed belongs to the menu, not the world:
+     * it reads as released until the button goes up once, so the next press is a real one -
+     * which also keeps creative double-tap fly counting from a genuine first tap.
+     */
+    private boolean heldUnlessCarried(
+        ControllerSnapshot snapshot,
+        ControllerConfig config,
+        ControllerConfig.ResolvedLayout layout,
+        GameplayAction action
+    ) {
+        boolean pressed = isActionPressed(snapshot, config, layout, action);
+        if (!holdsCarriedFromScreen.contains(action)) {
+            return pressed;
+        }
+        if (!pressed) {
+            holdsCarriedFromScreen.remove(action);
+        }
+        return false;
     }
 
     private void translateTaps(
