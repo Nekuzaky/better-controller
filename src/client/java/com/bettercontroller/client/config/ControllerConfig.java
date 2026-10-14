@@ -8,7 +8,12 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class ControllerConfig {
-    public int schemaVersion = 10;
+    /** The schema that changed the menu repeat defaults; see {@link #migrateFrom}. */
+    static final int MENU_TIMING_SCHEMA = 11;
+    static final int LEGACY_MENU_INITIAL_REPEAT_DELAY_MS = 140;
+    static final int LEGACY_MENU_REPEAT_INTERVAL_MS = 55;
+
+    public int schemaVersion = MENU_TIMING_SCHEMA;
     public boolean autoActivateOnController = true;
 
     /**
@@ -32,8 +37,14 @@ public final class ControllerConfig {
     public float menuAxisThreshold = 0.35F;
     public float menuAxisPressThreshold = 0.40F;
     public float menuAxisReleaseThreshold = 0.20F;
-    public int menuInitialRepeatDelayMs = 140;
-    public int menuRepeatIntervalMs = 55;
+    /**
+     * Menu repeat timing. A 55ms interval is roughly 18 moves a second, which on menus of five or
+     * six entries overshoots before the eye has caught up - and the client tick is 50ms, so the
+     * selection was moving on very nearly every tick. Slowed to about six a second, which is what
+     * a console menu feels like.
+     */
+    public int menuInitialRepeatDelayMs = 300;
+    public int menuRepeatIntervalMs = 170;
 
     public boolean hudHintsEnabled = true;
     public boolean debugOverlayEnabled = true;
@@ -90,6 +101,27 @@ public final class ControllerConfig {
 
         mergeMissingAxes(axes, fallback.axes);
         mergeMissingBindings(bindings, fallback.bindings);
+    }
+
+    /**
+     * Brings values written by an older schema up to date. Called on the raw values read from
+     * disk, before anything is clamped or backfilled.
+     *
+     * <p>Schema 11 slowed menu repeat from 140/55 ms to 300/170 ms. The config file is copied out
+     * on first run and then owns its values, so changing the default alone reached nobody who
+     * had already played. A file still carrying exactly the old pair never chose it - that was
+     * the default - and is moved to the new one. Anything else was set on purpose and is kept.
+     */
+    public void migrateFrom(int loadedSchemaVersion) {
+        if (loadedSchemaVersion >= MENU_TIMING_SCHEMA) {
+            return;
+        }
+        if (menuInitialRepeatDelayMs == LEGACY_MENU_INITIAL_REPEAT_DELAY_MS
+            && menuRepeatIntervalMs == LEGACY_MENU_REPEAT_INTERVAL_MS) {
+            ControllerConfig fallback = createDefault();
+            menuInitialRepeatDelayMs = fallback.menuInitialRepeatDelayMs;
+            menuRepeatIntervalMs = fallback.menuRepeatIntervalMs;
+        }
     }
 
     public ResolvedLayout resolveLayout() {

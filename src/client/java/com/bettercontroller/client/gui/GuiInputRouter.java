@@ -11,6 +11,14 @@ import java.util.EnumMap;
 import java.util.List;
 
 public final class GuiInputRouter {
+    /** Holding a direction this long speeds the repeat up a little, for long lists. */
+    private static final long ACCELERATE_AFTER_MS = 900L;
+    /**
+     * The sped-up repeat never goes below two client ticks. Polling is tick-paced, so anything
+     * shorter moves the selection every tick and the stick reads as a scroll wheel, not steps.
+     */
+    private static final long MIN_ACCELERATED_INTERVAL_MS = 100L;
+
     private final EnumMap<GameplayAction, Boolean> previousStates = new EnumMap<>(GameplayAction.class);
     private final EnumMap<GameplayAction, Long> holdStartMs = new EnumMap<>(GameplayAction.class);
     private final EnumMap<GameplayAction, Long> lastRepeatMs = new EnumMap<>(GameplayAction.class);
@@ -23,8 +31,8 @@ public final class GuiInputRouter {
         InputTranslator translator,
         boolean allowConfirmRepeat
     ) {
-        long initialDelayMs = clampLong(config.menuInitialRepeatDelayMs, 60L, 400L, 140L);
-        long repeatIntervalMs = clampLong(config.menuRepeatIntervalMs, 20L, 200L, 55L);
+        long initialDelayMs = clampLong(config.menuInitialRepeatDelayMs, 60L, 400L, 300L);
+        long repeatIntervalMs = clampLong(config.menuRepeatIntervalMs, 20L, 200L, 170L);
         if (allowConfirmRepeat) {
             initialDelayMs = Math.min(initialDelayMs, 150L);
             repeatIntervalMs = Math.min(repeatIntervalMs, 40L);
@@ -104,13 +112,23 @@ public final class GuiInputRouter {
 
         long heldSince = holdStartMs.getOrDefault(action, now);
         long lastRepeat = lastRepeatMs.getOrDefault(action, now);
-        long acceleratedInterval = Math.max(16L, repeatIntervalMs - 12L);
-        long effectiveInterval = (now - heldSince) >= 900L ? acceleratedInterval : repeatIntervalMs;
+        long effectiveInterval = (now - heldSince) >= ACCELERATE_AFTER_MS
+            ? acceleratedInterval(repeatIntervalMs)
+            : repeatIntervalMs;
         if ((now - heldSince) >= initialDelayMs && (now - lastRepeat) >= effectiveInterval) {
             lastRepeatMs.put(action, now);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Interval once a hold has passed {@link #ACCELERATE_AFTER_MS}. Floored at two ticks, except
+     * that an interval already set below the floor is kept as it is rather than slowed down.
+     */
+    static long acceleratedInterval(long repeatIntervalMs) {
+        long floor = Math.min(repeatIntervalMs, MIN_ACCELERATED_INTERVAL_MS);
+        return Math.max(floor, repeatIntervalMs - 12L);
     }
 
     private static long clampLong(long value, long min, long max, long fallback) {

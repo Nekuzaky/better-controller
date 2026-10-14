@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "_documentation": [
     "BetterController config (V3 simplified).",
     "Axes support inversion with '-' prefix. Example: -RIGHT_Y.",
@@ -29,8 +29,8 @@
   "menuAxisThreshold": 0.35,
   "menuAxisPressThreshold": 0.40,
   "menuAxisReleaseThreshold": 0.20,
-  "menuInitialRepeatDelayMs": 140,
-  "menuRepeatIntervalMs": 55,
+  "menuInitialRepeatDelayMs": 300,
+  "menuRepeatIntervalMs": 170,
   "hudHintsEnabled": true,
   "debugOverlayEnabled": true,
   "debugLogging": false,
