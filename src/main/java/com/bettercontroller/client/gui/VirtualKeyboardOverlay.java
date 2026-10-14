@@ -6,11 +6,7 @@ import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiTextField;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -73,18 +69,19 @@ public final class VirtualKeyboardOverlay {
     /**
      * Whether this screen is one worth typing into. Rather than listing screen classes - which
      * would miss every modded one - this looks for a focused text field, which is what actually
-     * matters.
+     * matters. Signs are the exception: they take text without having a field.
      */
     public static boolean isTextScreen(GuiScreen screen) {
-        return findFocusedTextField(screen) != null;
+        return TextFieldTargets.isTextScreen(screen);
     }
 
     /**
-     * Asks for the keyboard on the next text screen to appear.
+     * Asks for the keyboard on the next text screen to appear, or on this one.
      *
-     * <p>The keyboard is never summoned on its own. Opening chat from the controller asks for one;
-     * opening it by pressing T does not, because a player already at the keyboard does not want
-     * half the screen covered by a worse one.
+     * <p>The keyboard is never summoned on its own. Opening chat from the controller asks for one,
+     * and so does pressing A on a text field or a sign; opening chat by pressing T does not,
+     * because a player already at the keyboard does not want half the screen covered by a worse
+     * one.
      */
     public void requestOpen() {
         pendingOpen = true;
@@ -303,45 +300,5 @@ public final class VirtualKeyboardOverlay {
 
     private static void sendKey(GuiScreen screen, char character, int keyCode) {
         GuiReflection.keyTyped(screen, character, keyCode);
-    }
-
-    /**
-     * Finds the focused text field on a screen, walking up the class hierarchy so a modded screen
-     * that inherits its field is found too. Returns null when the screen has none, which is how
-     * "should the keyboard appear" gets answered.
-     */
-    private static GuiTextField findFocusedTextField(GuiScreen screen) {
-        if (screen == null) {
-            return null;
-        }
-        for (Class<?> type = screen.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
-            for (Field field : declaredFields(type)) {
-                if (!GuiTextField.class.isAssignableFrom(field.getType())) {
-                    continue;
-                }
-                try {
-                    field.setAccessible(true);
-                    GuiTextField candidate = (GuiTextField) field.get(screen);
-                    if (candidate != null && candidate.getVisible() && candidate.isFocused()) {
-                        return candidate;
-                    }
-                } catch (Exception ignored) {
-                    // A field we cannot read is a field we cannot type into. Keep looking.
-                }
-            }
-        }
-        return null;
-    }
-
-    private static List<Field> declaredFields(Class<?> type) {
-        try {
-            List<Field> fields = new ArrayList<Field>();
-            for (Field field : type.getDeclaredFields()) {
-                fields.add(field);
-            }
-            return fields;
-        } catch (Exception failure) {
-            return new ArrayList<Field>();
-        }
     }
 }

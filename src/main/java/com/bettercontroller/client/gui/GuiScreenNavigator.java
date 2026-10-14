@@ -31,11 +31,18 @@ public final class GuiScreenNavigator {
     private static final int HIGHLIGHT_THICKNESS = 1;
 
     private final GuiInputRouter router = new GuiInputRouter();
+    private final VirtualKeyboardOverlay keyboard;
 
     private GuiScreen boundScreen;
     private List<GuiButton> boundButtons = new ArrayList<GuiButton>();
+    /** Stand-ins for the screen's text fields; see {@link TextFieldTargets#targetsFor}. */
+    private List<GuiButton> textTargets = new ArrayList<GuiButton>();
     private GuiButton selected;
     private boolean justOpened;
+
+    public GuiScreenNavigator(VirtualKeyboardOverlay keyboard) {
+        this.keyboard = keyboard;
+    }
 
     /**
      * Rebinds to a screen. Forge fires this after {@code initGui}, which is also when a screen
@@ -46,10 +53,12 @@ public final class GuiScreenNavigator {
         boolean sameScreen = screen == boundScreen;
         boundScreen = screen;
         boundButtons = buttons == null ? new ArrayList<GuiButton>() : buttons;
+        // Rebuilt on every init, not only for a new screen: initGui creates its text fields anew.
+        textTargets = TextFieldTargets.targetsFor(screen);
         if (!sameScreen) {
             selected = null;
             suppressNextFrame();
-        } else if (selected != null && !boundButtons.contains(selected)) {
+        } else if (selected != null && !boundButtons.contains(selected) && !textTargets.contains(selected)) {
             selected = null;
         }
     }
@@ -57,6 +66,7 @@ public final class GuiScreenNavigator {
     public void onScreenClosed() {
         boundScreen = null;
         boundButtons = new ArrayList<GuiButton>();
+        textTargets = new ArrayList<GuiButton>();
         selected = null;
         justOpened = false;
         router.reset();
@@ -109,7 +119,8 @@ public final class GuiScreenNavigator {
             return;
         }
         if (selected == null || !candidates.contains(selected)) {
-            selected = candidates.get(0);
+            // A screen with somewhere to type is mostly about typing, so that is where it starts.
+            selected = textTargets.isEmpty() ? candidates.get(0) : textTargets.get(0);
         }
         handleFrame(client, frame, candidates);
     }
@@ -133,6 +144,10 @@ public final class GuiScreenNavigator {
             selected = nearestInDirection(candidates, selected, 1, 0);
         }
 
+        if (frame.confirm() && textTargets.contains(selected)) {
+            summonKeyboard(client, client.currentScreen, selected);
+            return;
+        }
         if (frame.confirm() && !onSlider) {
             // Sliders are excluded deliberately. Confirming one would activate it as a button, and
             // on the other versions that snapped the value to wherever the synthetic click landed.
@@ -163,13 +178,23 @@ public final class GuiScreenNavigator {
     }
 
     private List<GuiButton> selectableButtons() {
-        List<GuiButton> result = new ArrayList<GuiButton>();
+        List<GuiButton> result = new ArrayList<GuiButton>(textTargets);
         for (GuiButton button : boundButtons) {
             if (button != null && button.visible && button.enabled) {
                 result.add(button);
             }
         }
         return result;
+    }
+
+    /**
+     * A on a text field: focus it, as a click would, and ask for the keyboard. The keyboard opens
+     * on the next tick and discards its first frame, so the A that summoned it types nothing.
+     */
+    private void summonKeyboard(Minecraft client, GuiScreen screen, GuiButton target) {
+        target.playPressSound(client.getSoundHandler());
+        TextFieldTargets.focus(screen, target);
+        keyboard.requestOpen();
     }
 
     /**

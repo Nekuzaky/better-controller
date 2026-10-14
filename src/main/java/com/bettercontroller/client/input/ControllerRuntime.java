@@ -45,15 +45,20 @@ public final class ControllerRuntime {
      */
     private static final float FRAME_DELTA_SMOOTHING = 0.25F;
 
+    private static final int HANDLER_NONE = 0;
+    private static final int HANDLER_KEYBOARD = 1;
+    private static final int HANDLER_CONTAINER = 2;
+    private static final int HANDLER_BUTTONS = 3;
+
     private final GlfwBridge glfw;
     private final ControllerPoller controllerPoller;
     private final ControllerConfigManager configManager;
     private final InputTranslator inputTranslator = new InputTranslator();
     private final MinecraftInputApplier inputApplier = new MinecraftInputApplier();
     private final ControllerGlyphService glyphService = new ControllerGlyphService();
-    private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator();
-    private final ContainerNavigator containerNavigator = new ContainerNavigator();
     private final VirtualKeyboardOverlay virtualKeyboard = new VirtualKeyboardOverlay();
+    private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator(virtualKeyboard);
+    private final ContainerNavigator containerNavigator = new ContainerNavigator(virtualKeyboard);
     private final ControllerDebugOverlay debugOverlay = new ControllerDebugOverlay();
     private final ScreenExitGate screenExitGate = new ScreenExitGate();
     private final Path configDirectory;
@@ -68,7 +73,8 @@ public final class ControllerRuntime {
     private boolean mappingsApplied;
     private boolean wasControllerConnected;
     private boolean wasScreenOpen;
-    private boolean buttonsDroveLastTick;
+    /** Which of the three screen handlers took the last tick; see {@link #tickInScreen}. */
+    private int screenHandler = HANDLER_NONE;
 
     public ControllerRuntime(GlfwBridge glfw, Path configDirectory) {
         this.glfw = glfw;
@@ -152,29 +158,35 @@ public final class ControllerRuntime {
         tickInWorld(client);
     }
 
-    /** A screen is open: drop every gameplay hold and drive the menu instead. */
+    /**
+     * A screen is open: drop every gameplay hold and drive the menu instead.
+     *
+     * <p>Exactly one of the three drives the screen, and each says whether it took the tick -
+     * otherwise a single stick push would move a key, a slot and a button at once. Whichever one
+     * takes over from another discards its first frame: it has not been watching the buttons,
+     * so one still held from before - the B that dismissed the keyboard on an anvil or a sign -
+     * would read as a fresh press and close the screen underneath.
+     */
     private void tickInScreen(Minecraft client) {
         wasScreenOpen = true;
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
-        // Exactly one of these drives the screen, and each says whether it took the tick.
-        // Otherwise a single stick push would move a key, a slot and a button at once.
-        boolean handled = virtualKeyboard.onScreenTick(
-            client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
-        if (!handled) {
-            handled = containerNavigator.onScreenTick(
-                client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
-        }
-        if (handled) {
-            buttonsDroveLastTick = false;
+
+        if (virtualKeyboard.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator)) {
+            screenHandler = HANDLER_KEYBOARD;
             return;
         }
-        if (!buttonsDroveLastTick) {
-            // Taking over from the keyboard or the container navigator, whose B or A may still be
-            // held: the B that dismisses the keyboard on a sign must not then close the sign.
-            buttonsDroveLastTick = true;
+        if (screenHandler != HANDLER_CONTAINER) {
+            containerNavigator.suppressNextFrame();
+        }
+        if (containerNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator)) {
+            screenHandler = HANDLER_CONTAINER;
+            return;
+        }
+        if (screenHandler != HANDLER_BUTTONS) {
             screenNavigator.suppressNextFrame();
         }
+        screenHandler = HANDLER_BUTTONS;
         screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
     }
 
@@ -244,7 +256,7 @@ public final class ControllerRuntime {
     }
 
     public void onScreenClosed() {
-        buttonsDroveLastTick = false;
+        screenHandler = HANDLER_NONE;
         screenNavigator.onScreenClosed();
         virtualKeyboard.reset();
         containerNavigator.close();

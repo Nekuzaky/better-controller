@@ -5,6 +5,7 @@ import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.ClickType;
@@ -26,12 +27,21 @@ public final class ContainerNavigator {
 
     private static final int HIGHLIGHT_COLOR = 0xFFFFC66B;
     private static final int SLOT_SIZE = 16;
+    /** Selection value for the text field; slot numbers are never negative. */
+    private static final int TEXT_FIELD_SLOT = -100;
 
     private final GuiInputRouter router = new GuiInputRouter();
+    private final VirtualKeyboardOverlay keyboard;
 
     private GuiContainer boundScreen;
     private int selectedSlotNumber = -1;
     private boolean justOpened;
+    /** The screen's text field as a selectable target, when it has one - the anvil's name. */
+    private GuiButton textTarget;
+
+    public ContainerNavigator(VirtualKeyboardOverlay keyboard) {
+        this.keyboard = keyboard;
+    }
 
     public static boolean isContainerScreen(GuiScreen screen) {
         return screen instanceof GuiContainer;
@@ -41,7 +51,18 @@ public final class ContainerNavigator {
         boundScreen = null;
         selectedSlotNumber = -1;
         justOpened = false;
+        textTarget = null;
         router.reset();
+    }
+
+    /**
+     * Makes the next tick record what is held without acting on it - for taking the screen back
+     * from the virtual keyboard, whose B would otherwise read here as a fresh press and close the
+     * anvil it was just typing into.
+     */
+    public void suppressNextFrame() {
+        router.reset();
+        justOpened = true;
     }
 
     /**
@@ -64,6 +85,7 @@ public final class ContainerNavigator {
         if (screen != boundScreen) {
             boundScreen = screen;
             selectedSlotNumber = -1;
+            textTarget = null;
             // The button that opened the container is very likely still held, and pulse() reads a
             // press with no previous state as a fresh one. Without swallowing a frame, opening a
             // chest would immediately pick up whatever slot happened to be selected.
@@ -75,7 +97,7 @@ public final class ContainerNavigator {
         if (slots.isEmpty()) {
             return false;
         }
-        if (findSlot(slots, selectedSlotNumber) == null) {
+        if (selectedSlotNumber != TEXT_FIELD_SLOT && findSlot(slots, selectedSlotNumber) == null) {
             selectedSlotNumber = slots.get(0).slotNumber;
         }
 
@@ -84,11 +106,26 @@ public final class ContainerNavigator {
             justOpened = false;
             return true;
         }
-        if (!frame.anyNavigation()) {
-            return true;
+        if (frame.anyNavigation()) {
+            handleFrame(client, screen, frame, slots);
+        }
+        return true;
+    }
+
+    private void handleFrame(Minecraft client, GuiContainer screen, GuiInputFrame frame, List<Slot> slots) {
+        // Looked up only when there is input to act on: walking the screen's fields every tick
+        // would allocate for nothing. Re-read each time because initGui recreates the field.
+        List<GuiButton> targets = TextFieldTargets.targetsFor(screen);
+        textTarget = targets.isEmpty() ? null : targets.get(0);
+        Slot textSlot = textTarget == null ? null : textFieldSlot(screen, textTarget);
+        if (textSlot != null) {
+            slots.add(textSlot);
         }
 
-        Slot selected = findSlot(slots, selectedSlotNumber);
+        Slot selected = selectedSlotNumber == TEXT_FIELD_SLOT ? textSlot : findSlot(slots, selectedSlotNumber);
+        if (selected == null) {
+            selected = slots.get(0);
+        }
         if (frame.up()) {
             selected = nearestInDirection(slots, selected, 0, -1);
         } else if (frame.down()) {
@@ -100,6 +137,25 @@ public final class ContainerNavigator {
         }
         selectedSlotNumber = selected.slotNumber;
 
+        if (selected == textSlot) {
+            if (frame.confirm()) {
+                // Focus it as a click would, and ask for the keyboard. It opens next tick and
+                // discards its first frame, so this A types nothing.
+                TextFieldTargets.focus(screen, textTarget);
+                keyboard.requestOpen();
+            }
+        } else {
+            clickSlot(client, screen, frame, selected);
+        }
+        if (frame.back() && client.player != null) {
+            // Through the player rather than displayGuiScreen(null): the server has to be told the
+            // container was closed, or it keeps the window open and the next one desynchronises.
+            client.player.closeScreen();
+            close();
+        }
+    }
+
+    private static void clickSlot(Minecraft client, GuiContainer screen, GuiInputFrame frame, Slot selected) {
         if (frame.confirm()) {
             click(client, screen, selected, 0, ClickType.PICKUP);
         }
@@ -112,13 +168,18 @@ public final class ContainerNavigator {
             // Right click: take half a stack, or place one item.
             click(client, screen, selected, 1, ClickType.PICKUP);
         }
-        if (frame.back() && client.player != null) {
-            // Through the player rather than displayGuiScreen(null): the server has to be told the
-            // container was closed, or it keeps the window open and the next one desynchronises.
-            client.player.closeScreen();
-            close();
-        }
-        return true;
+    }
+
+    /**
+     * A stand-in slot at the text field's centre, so the slot geometry can step onto it. It is
+     * never clicked: its number is one no container uses, and the click path is skipped for it.
+     */
+    private static Slot textFieldSlot(GuiContainer screen, GuiButton target) {
+        int x = target.x - screen.getGuiLeft() + (target.width / 2) - (SLOT_SIZE / 2);
+        int y = target.y - screen.getGuiTop() + (target.height / 2) - (SLOT_SIZE / 2);
+        Slot slot = new Slot(null, 0, x, y);
+        slot.slotNumber = TEXT_FIELD_SLOT;
+        return slot;
     }
 
     /**
@@ -132,6 +193,11 @@ public final class ContainerNavigator {
         if (client == null || boundScreen == null || screen != boundScreen) {
             return;
         }
+        if (selectedSlotNumber == TEXT_FIELD_SLOT && textTarget != null) {
+            drawBorder(textTarget.x - 2, textTarget.y - 2,
+                textTarget.x + textTarget.width + 2, textTarget.y + textTarget.height + 2);
+            return;
+        }
         Slot selected = selectedSlot();
         if (selected == null) {
             return;
@@ -139,9 +205,10 @@ public final class ContainerNavigator {
 
         int left = boundScreen.getGuiLeft() + selected.xPos - 1;
         int top = boundScreen.getGuiTop() + selected.yPos - 1;
-        int right = left + SLOT_SIZE + 2;
-        int bottom = top + SLOT_SIZE + 2;
+        drawBorder(left, top, left + SLOT_SIZE + 2, top + SLOT_SIZE + 2);
+    }
 
+    private static void drawBorder(int left, int top, int right, int bottom) {
         Gui.drawRect(left, top, right, top + 1, HIGHLIGHT_COLOR);
         Gui.drawRect(left, bottom - 1, right, bottom, HIGHLIGHT_COLOR);
         Gui.drawRect(left, top, left + 1, bottom, HIGHLIGHT_COLOR);
