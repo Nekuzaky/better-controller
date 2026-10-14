@@ -235,7 +235,12 @@ public final class ControllerConfigManager {
         return null;
     }
 
-    private static void sanitize(ControllerConfig config) {
+    /**
+     * Package-private so the clamping rules can be exercised directly; the method is static and
+     * touches no instance state, so a test never has to build a manager (and so never needs a
+     * Fabric config directory to exist).
+     */
+    static void sanitize(ControllerConfig config) {
         config.movementDeadzone = clamp(config.movementDeadzone, 0.0F, 0.95F, 0.14F);
         config.lookDeadzone = clamp(config.lookDeadzone, 0.0F, 0.95F, 0.07F);
         config.lookAntiDeadzone = clamp(config.lookAntiDeadzone, 0.0F, 0.25F, 0.02F);
@@ -253,12 +258,12 @@ public final class ControllerConfigManager {
         if (config.menuAxisReleaseThreshold >= config.menuAxisPressThreshold) {
             config.menuAxisReleaseThreshold = Math.max(0.05F, config.menuAxisPressThreshold - 0.10F);
         }
-        config.menuInitialRepeatDelayMs = clampInt(config.menuInitialRepeatDelayMs, 60, 400, 300);
-        config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200, 170);
+        config.menuInitialRepeatDelayMs = clampInt(config.menuInitialRepeatDelayMs, 60, 400);
+        config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200);
         config.cameraSmoothingStrength = clamp(config.cameraSmoothingStrength, 0.0F, 1.0F, 0.35F);
         config.lookResponseCurve = normalizeResponseCurve(config.lookResponseCurve);
         config.preferredControllerGuid = normalizeGuid(config.preferredControllerGuid);
-        config.preferredJoystickIndex = clampInt(config.preferredJoystickIndex, -1, MAX_JOYSTICK_INDEX, -1);
+        config.preferredJoystickIndex = inRangeOrDefault(config.preferredJoystickIndex, -1, MAX_JOYSTICK_INDEX, -1);
     }
 
     private static String normalizeGuid(String value) {
@@ -285,7 +290,23 @@ public final class ControllerConfigManager {
         return Math.max(min, Math.min(max, value));
     }
 
-    private static int clampInt(int value, int min, int max, int fallback) {
+    /**
+     * Clamps to the nearest bound, like the float version. A number past the end of a range is
+     * someone asking for "as much as possible", and honouring that beats discarding it: setting
+     * menuRepeatIntervalMs to 500 used to snap back to the 170 default rather than the 200 the
+     * range allows, which reads as the setting being ignored.
+     */
+    private static int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * For values where every number means a different thing rather than more of one thing.
+     * preferredJoystickIndex is the case: clamping an out-of-range index would silently pin the
+     * mod to whichever pad happens to sit at the top of the range, so an index that cannot be
+     * honoured falls back to -1, "first gamepad found".
+     */
+    private static int inRangeOrDefault(int value, int min, int max, int fallback) {
         if (value < min || value > max) {
             return fallback;
         }
