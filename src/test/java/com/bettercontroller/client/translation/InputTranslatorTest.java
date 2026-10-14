@@ -250,6 +250,98 @@ class InputTranslatorTest {
     }
 
     @Test
+    void buttonHeldWhileAScreenClosesDoesNotTapInTheWorld() {
+        // B closes the inventory; it is still down on the first tick back in the world.
+        snapshot.simulateButton(ControllerButton.EAST, true);
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        assertFalse(translator.translate(snapshot, config, layout).dropTap(), "the closing press must not drop the item");
+    }
+
+    @Test
+    void pressStartedAfterTheScreenClosesStillTaps() {
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        snapshot.simulateButton(ControllerButton.EAST, true);
+
+        assertTrue(translator.translate(snapshot, config, layout).dropTap());
+    }
+
+    @Test
+    void buttonHeldFromAScreenTapsAgainOnceReleasedAndPressed() {
+        snapshot.simulateButton(ControllerButton.EAST, true);
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+        translator.translate(snapshot, config, layout);
+
+        snapshot.simulateButton(ControllerButton.EAST, false);
+        translator.translate(snapshot, config, layout);
+        snapshot.simulateButton(ControllerButton.EAST, true);
+
+        assertTrue(translator.translate(snapshot, config, layout).dropTap());
+    }
+
+    @Test
+    void jumpHeldFromAScreenStaysOffUntilReleased() {
+        // A held on "Back to Game".
+        snapshot.simulateButton(ControllerButton.SOUTH, true);
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        assertFalse(translator.translate(snapshot, config, layout).jumpHeld());
+        assertFalse(translator.translate(snapshot, config, layout).jumpHeld(), "still the menu's press");
+
+        snapshot.simulateButton(ControllerButton.SOUTH, false);
+        assertFalse(translator.translate(snapshot, config, layout).jumpHeld());
+        snapshot.simulateButton(ControllerButton.SOUTH, true);
+        assertTrue(translator.translate(snapshot, config, layout).jumpHeld(), "a new press jumps");
+    }
+
+    @Test
+    void triggerHeldFromAScreenDoesNotAttack() {
+        // RT pages in menus and attacks in the world.
+        snapshot.simulateAxis(ControllerAxis.RIGHT_TRIGGER, 1.0f);
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        assertFalse(translator.translate(snapshot, config, layout).attackHeld());
+
+        // GLFW rests a trigger at -1.
+        snapshot.simulateAxis(ControllerAxis.RIGHT_TRIGGER, -1.0f);
+        translator.translate(snapshot, config, layout);
+        snapshot.simulateAxis(ControllerAxis.RIGHT_TRIGGER, 1.0f);
+        assertTrue(translator.translate(snapshot, config, layout).attackHeld());
+    }
+
+    @Test
+    void movementHoldsCarryOverFromAScreen() {
+        // Sneak shares no button with a menu action; letting go of it at a ledge would be worse.
+        snapshot.simulateButton(ControllerButton.RIGHT_STICK, true);
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        assertTrue(translator.translate(snapshot, config, layout).sneakHeld());
+    }
+
+    @Test
+    void doubleTapJumpStillWorksAfterAScreen() {
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        snapshot.simulateButton(ControllerButton.SOUTH, true);
+        assertTrue(translator.translate(snapshot, config, layout).jumpHeld());
+        snapshot.simulateButton(ControllerButton.SOUTH, false);
+        assertFalse(translator.translate(snapshot, config, layout).jumpHeld());
+        snapshot.simulateButton(ControllerButton.SOUTH, true);
+        assertTrue(translator.translate(snapshot, config, layout).jumpHeld());
+    }
+
+    @Test
+    void resetStateForgetsHoldsCarriedFromAScreen() {
+        snapshot.simulateButton(ControllerButton.SOUTH, true);
+        translator.rememberHeldWhileIdle(snapshot, config, layout);
+
+        translator.resetState();
+
+        assertTrue(translator.translate(snapshot, config, layout).jumpHeld());
+    }
+
+    @Test
     void hotbarNextProducesPositiveStep() {
         snapshot.simulateButton(ControllerButton.RIGHT_BUMPER, true);
 

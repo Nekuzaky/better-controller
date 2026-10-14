@@ -240,7 +240,9 @@ public final class ControllerRuntime {
     private void tickInScreen(MinecraftClient client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
-        inputTranslator.resetState();
+        // Not resetState(): whatever is held while the screen closes must not read as a fresh
+        // press on the first tick back in the world.
+        inputTranslator.rememberHeldWhileIdle(latestSnapshot, latestConfig, activeLayout);
         virtualKeyboardLauncher.processPending(latestConfig);
         guiNavigationHooks.onScreenTick(client, latestSnapshot, latestConfig, activeLayout);
         resetRenderLookClock();
@@ -249,7 +251,7 @@ public final class ControllerRuntime {
     private void tickWhileInactive(MinecraftClient client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
-        inputTranslator.resetState();
+        inputTranslator.rememberHeldWhileIdle(latestSnapshot, latestConfig, activeLayout);
         guiNavigationHooks.reset();
         resetRenderLookClock();
     }

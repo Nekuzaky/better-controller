@@ -65,6 +65,9 @@ public final class MinecraftInputApplier {
         setHold(client.options.useKey, false);
         setHold(client.options.playerListKey, false);
 
+        // Released is also what the next gameplay frame reports: InputTranslator keeps a jump,
+        // attack or use that is still down from a screen off until it is let go, so these flags
+        // never see that stale hold as a rising edge.
         previousJumpHeld = false;
         previousAttackHeld = false;
         previousUseHeld = false;
