@@ -1,6 +1,5 @@
 package com.bettercontroller.client.gui;
 
-import com.bettercontroller.BetterControllerMod;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
@@ -11,7 +10,6 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,10 +32,6 @@ public final class ContainerNavigator {
     private GuiContainer boundScreen;
     private int selectedSlotNumber = -1;
     private boolean justOpened;
-
-    private static Field guiLeftField;
-    private static Field guiTopField;
-    private static boolean reflectionWarned;
 
     public static boolean isContainerScreen(GuiScreen screen) {
         return screen instanceof GuiContainer;
@@ -143,8 +137,8 @@ public final class ContainerNavigator {
             return;
         }
 
-        int left = guiLeft(boundScreen) + selected.xPos - 1;
-        int top = guiTop(boundScreen) + selected.yPos - 1;
+        int left = boundScreen.getGuiLeft() + selected.xPos - 1;
+        int top = boundScreen.getGuiTop() + selected.yPos - 1;
         int right = left + SLOT_SIZE + 2;
         int bottom = top + SLOT_SIZE + 2;
 
@@ -239,55 +233,5 @@ public final class ContainerNavigator {
         }
         client.playerController.windowClick(
             screen.inventorySlots.windowId, slot.slotNumber, button, type, client.player);
-    }
-
-    private static int guiLeft(GuiContainer screen) {
-        return readInt(screen, guiLeftField(), 0);
-    }
-
-    private static int guiTop(GuiContainer screen) {
-        return readInt(screen, guiTopField(), 0);
-    }
-
-    private static Field guiLeftField() {
-        if (guiLeftField == null) {
-            guiLeftField = findField("guiLeft");
-        }
-        return guiLeftField;
-    }
-
-    private static Field guiTopField() {
-        if (guiTopField == null) {
-            guiTopField = findField("guiTop");
-        }
-        return guiTopField;
-    }
-
-    /** guiLeft and guiTop are protected, and slot coordinates are relative to them. */
-    private static Field findField(String name) {
-        try {
-            Field field = GuiContainer.class.getDeclaredField(name);
-            field.setAccessible(true);
-            return field;
-        } catch (Exception failure) {
-            if (!reflectionWarned) {
-                reflectionWarned = true;
-                BetterControllerMod.logger().warn(
-                    "BetterController: could not read GuiContainer." + name
-                        + "; the container highlight will be misplaced.", failure);
-            }
-            return null;
-        }
-    }
-
-    private static int readInt(GuiContainer screen, Field field, int fallback) {
-        if (field == null) {
-            return fallback;
-        }
-        try {
-            return field.getInt(screen);
-        } catch (Exception failure) {
-            return fallback;
-        }
     }
 }

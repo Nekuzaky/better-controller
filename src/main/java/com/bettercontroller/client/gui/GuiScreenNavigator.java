@@ -1,6 +1,5 @@
 package com.bettercontroller.client.gui;
 
-import com.bettercontroller.BetterControllerMod;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
@@ -11,7 +10,6 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiSlider;
 import net.minecraft.client.gui.GuiOptionSlider;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,10 +35,6 @@ public final class GuiScreenNavigator {
     private GuiScreen boundScreen;
     private List<GuiButton> boundButtons = new ArrayList<GuiButton>();
     private GuiButton selected;
-
-    private static Method actionPerformed;
-    private static Method keyTyped;
-    private static boolean reflectionWarned;
 
     /**
      * Rebinds to a screen. Forge fires this after {@code initGui}, which is also when a screen
@@ -78,7 +72,7 @@ public final class GuiScreenNavigator {
         }
         if (client.currentScreen != boundScreen) {
             // A screen opened without us seeing its init - fall back to whatever it has now.
-            onScreenInit(client.currentScreen, readButtons(client.currentScreen));
+            onScreenInit(client.currentScreen, GuiReflection.buttonList(client.currentScreen));
         }
 
         GuiInputFrame frame = router.route(snapshot, config, layout, translator, false);
@@ -225,14 +219,7 @@ public final class GuiScreenNavigator {
         if (slider instanceof GuiSlider) {
             return ((GuiSlider) slider).getSliderPosition();
         }
-        try {
-            java.lang.reflect.Field field = GuiOptionSlider.class.getDeclaredField("sliderValue");
-            field.setAccessible(true);
-            return field.getFloat(slider);
-        } catch (Exception failure) {
-            warnOnce("could not read a slider's value", failure);
-            return 0.5F;
-        }
+        return GuiReflection.optionSliderValue((GuiOptionSlider) slider, 0.5F);
     }
 
     private static float clamp01(float value) {
@@ -244,15 +231,7 @@ public final class GuiScreenNavigator {
             return;
         }
         button.playPressSound(client.getSoundHandler());
-        Method method = actionPerformedMethod();
-        if (method == null) {
-            return;
-        }
-        try {
-            method.invoke(screen, button);
-        } catch (Exception failure) {
-            warnOnce("could not activate a menu button", failure);
-        }
+        GuiReflection.actionPerformed(screen, button);
     }
 
     /**
@@ -260,69 +239,10 @@ public final class GuiScreenNavigator {
      *
      * <p>Calling {@code displayGuiScreen(null)} instead would skip whatever the screen does on
      * escape - a nested settings screen would close the whole stack rather than going back one.
+     * 1 is Keyboard.KEY_ESCAPE. LWJGL 2's Keyboard is not referenced by name anywhere in this
+     * mod, so the constant is written out.
      */
     private static void pressEscape(GuiScreen screen) {
-        Method method = keyTypedMethod();
-        if (screen == null || method == null) {
-            return;
-        }
-        try {
-            // 1 is Keyboard.KEY_ESCAPE. LWJGL 2's Keyboard is not referenced by name anywhere in
-            // this mod, so the constant is written out.
-            method.invoke(screen, Character.valueOf('\0'), Integer.valueOf(1));
-        } catch (Exception failure) {
-            warnOnce("could not send escape to a menu", failure);
-        }
-    }
-
-    private static List<GuiButton> readButtons(GuiScreen screen) {
-        try {
-            java.lang.reflect.Field field = GuiScreen.class.getDeclaredField("buttonList");
-            field.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            List<GuiButton> buttons = (List<GuiButton>) field.get(screen);
-            return buttons;
-        } catch (Exception failure) {
-            warnOnce("could not read a screen's button list", failure);
-            return new ArrayList<GuiButton>();
-        }
-    }
-
-    private static Method actionPerformedMethod() {
-        if (actionPerformed == null) {
-            actionPerformed = findMethod("actionPerformed", GuiButton.class);
-        }
-        return actionPerformed;
-    }
-
-    private static Method keyTypedMethod() {
-        if (keyTyped == null) {
-            keyTyped = findMethod("keyTyped", char.class, int.class);
-        }
-        return keyTyped;
-    }
-
-    private static Method findMethod(String name, Class<?>... parameters) {
-        try {
-            Method method = GuiScreen.class.getDeclaredMethod(name, parameters);
-            method.setAccessible(true);
-            return method;
-        } catch (Exception failure) {
-            warnOnce("could not find GuiScreen." + name, failure);
-            return null;
-        }
-    }
-
-    /**
-     * These are protected members of a vanilla class, so they are reached reflectively. A failure
-     * here means menu navigation is dead but the game is fine, and one warning is more useful than
-     * a line every tick.
-     */
-    private static void warnOnce(String what, Exception failure) {
-        if (reflectionWarned) {
-            return;
-        }
-        reflectionWarned = true;
-        BetterControllerMod.logger().warn("BetterController: " + what + "; menu navigation is off.", failure);
+        GuiReflection.keyTyped(screen, '\0', 1);
     }
 }

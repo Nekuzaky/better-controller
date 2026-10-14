@@ -1,6 +1,5 @@
 package com.bettercontroller.client.gui;
 
-import com.bettercontroller.BetterControllerMod;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
@@ -10,7 +9,6 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -67,9 +65,6 @@ public final class VirtualKeyboardOverlay {
     private boolean pendingOpen;
     private long pendingSince;
     private boolean justOpened;
-
-    private static Method keyTyped;
-    private static boolean reflectionWarned;
 
     public boolean isOpenFor(GuiScreen screen) {
         return screen != null && screen == boundScreen;
@@ -307,27 +302,7 @@ public final class VirtualKeyboardOverlay {
     }
 
     private static void sendKey(GuiScreen screen, char character, int keyCode) {
-        Method method = keyTypedMethod();
-        if (screen == null || method == null) {
-            return;
-        }
-        try {
-            method.invoke(screen, Character.valueOf(character), Integer.valueOf(keyCode));
-        } catch (Exception failure) {
-            warnOnce(failure);
-        }
-    }
-
-    private static Method keyTypedMethod() {
-        if (keyTyped == null) {
-            try {
-                keyTyped = GuiScreen.class.getDeclaredMethod("keyTyped", char.class, int.class);
-                keyTyped.setAccessible(true);
-            } catch (Exception failure) {
-                warnOnce(failure);
-            }
-        }
-        return keyTyped;
+        GuiReflection.keyTyped(screen, character, keyCode);
     }
 
     /**
@@ -368,13 +343,5 @@ public final class VirtualKeyboardOverlay {
         } catch (Exception failure) {
             return new ArrayList<Field>();
         }
-    }
-
-    private static void warnOnce(Exception failure) {
-        if (reflectionWarned) {
-            return;
-        }
-        reflectionWarned = true;
-        BetterControllerMod.logger().warn("BetterController: the virtual keyboard could not type.", failure);
     }
 }
