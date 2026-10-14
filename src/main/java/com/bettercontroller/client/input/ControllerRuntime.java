@@ -12,11 +12,13 @@ import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.polling.ControllerType;
 import com.bettercontroller.client.polling.GlfwBridge;
 import com.bettercontroller.client.render.ControllerDebugOverlay;
+import com.bettercontroller.client.render.ControllerHudRenderer;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.util.MovementInput;
 
 import java.nio.file.Path;
@@ -45,6 +47,11 @@ public final class ControllerRuntime {
      */
     private static final float FRAME_DELTA_SMOOTHING = 0.25F;
 
+    /** How long each status banner stays up. The same durations as the Fabric versions. */
+    private static final long STATUS_CONNECTED_MS = 3000L;
+    private static final long STATUS_DISCONNECTED_MS = 3200L;
+    private static final long STATUS_PROFILE_SWITCH_MS = 2400L;
+
     private static final int HANDLER_NONE = 0;
     private static final int HANDLER_KEYBOARD = 1;
     private static final int HANDLER_CONTAINER = 2;
@@ -60,6 +67,7 @@ public final class ControllerRuntime {
     private final GuiScreenNavigator screenNavigator = new GuiScreenNavigator(virtualKeyboard);
     private final ContainerNavigator containerNavigator = new ContainerNavigator(virtualKeyboard);
     private final ControllerDebugOverlay debugOverlay = new ControllerDebugOverlay();
+    private final ControllerHudRenderer hudRenderer = new ControllerHudRenderer();
     private final ScreenExitGate screenExitGate = new ScreenExitGate();
     private final Path configDirectory;
 
@@ -73,6 +81,11 @@ public final class ControllerRuntime {
     private boolean mappingsApplied;
     private boolean wasControllerConnected;
     private boolean wasScreenOpen;
+    private String runtimeStatusMessage = "";
+    private long runtimeStatusMessageUntilMs;
+    /** The pad the last banner was about; -1 once its disconnection has been announced. */
+    private int announcedJoystickId = -1;
+    private ControllerType announcedType = ControllerType.NONE;
     /** Which of the three screen handlers took the last tick; see {@link #tickInScreen}. */
     private int screenHandler = HANDLER_NONE;
 
@@ -105,6 +118,19 @@ public final class ControllerRuntime {
         return activeControllerType;
     }
 
+    /** Null when no controller is driving the game. */
+    public ControllerConfig.ResolvedLayout activeLayout() {
+        return activeLayout;
+    }
+
+    /** The status banner's text while it should be showing, otherwise the empty string. */
+    public String runtimeStatusMessage() {
+        if (!runtimeStatusMessage.isEmpty() && System.currentTimeMillis() > runtimeStatusMessageUntilMs) {
+            runtimeStatusMessage = "";
+        }
+        return runtimeStatusMessage;
+    }
+
     /** Name and GUID of a connected joystick GLFW cannot drive, or null. */
     public String unmappedJoystick() {
         return controllerPoller.unmappedJoystick();
@@ -129,9 +155,11 @@ public final class ControllerRuntime {
         );
 
         if (latestSnapshot == null || !latestSnapshot.isConnected()) {
+            announceDisconnection();
             handleNoController(client);
             return;
         }
+        announceConnection();
         if (!latestConfig.autoActivateOnController) {
             handleNoController(client);
             return;
@@ -269,6 +297,10 @@ public final class ControllerRuntime {
     }
 
 
+    public void renderHud(Minecraft client, int screenWidth, int screenHeight) {
+        hudRenderer.render(client, this, screenWidth, screenHeight);
+    }
+
     public void renderDebugOverlay(Minecraft client) {
         debugOverlay.render(client, this);
     }
@@ -280,6 +312,41 @@ public final class ControllerRuntime {
         if (glfw != null) {
             glfw.shutdown();
         }
+    }
+
+    /**
+     * Banners for a pad arriving, or the same slot now reporting a different kind of pad. Only on
+     * a change: the message is formatted here, once, rather than every frame it is drawn.
+     */
+    private void announceConnection() {
+        int joystickId = latestSnapshot.joystickId();
+        ControllerType type = latestSnapshot.controllerType();
+        if (joystickId != announcedJoystickId) {
+            pushRuntimeStatus(I18n.format("bettercontroller.status.connected",
+                latestSnapshot.joystickName(), type), STATUS_CONNECTED_MS);
+        } else if (type != announcedType) {
+            pushRuntimeStatus(I18n.format("bettercontroller.status.profile_switched", type),
+                STATUS_PROFILE_SWITCH_MS);
+        }
+        announcedJoystickId = joystickId;
+        announcedType = type;
+    }
+
+    private void announceDisconnection() {
+        if (announcedJoystickId == -1) {
+            return;
+        }
+        announcedJoystickId = -1;
+        announcedType = ControllerType.NONE;
+        pushRuntimeStatus(I18n.format("bettercontroller.status.disconnected"), STATUS_DISCONNECTED_MS);
+    }
+
+    private void pushRuntimeStatus(String message, long durationMs) {
+        if (message == null || message.isEmpty() || durationMs <= 0L) {
+            return;
+        }
+        runtimeStatusMessage = message;
+        runtimeStatusMessageUntilMs = System.currentTimeMillis() + durationMs;
     }
 
     private void handleNoController(Minecraft client) {

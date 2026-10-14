@@ -88,7 +88,7 @@ public final class BetterControllerEventHandler {
     }
 
     /**
-     * The F8 diagnostic panel, drawn over the HUD.
+     * The connection banner and button prompts, then the F8 diagnostic panel above them.
      *
      * <p>Keyed on TEXT rather than ALL so it draws once per frame: ALL fires for the overlay pass
      * as a whole and again for each element, which would stack the panel on itself a dozen times.
@@ -98,7 +98,9 @@ public final class BetterControllerEventHandler {
         if (event.getType() != RenderGameOverlayEvent.ElementType.TEXT) {
             return;
         }
-        runtime.renderDebugOverlay(Minecraft.getMinecraft());
+        Minecraft client = Minecraft.getMinecraft();
+        runtime.renderHud(client, event.getResolution().getScaledWidth(), event.getResolution().getScaledHeight());
+        runtime.renderDebugOverlay(client);
     }
 
     /** Toggles the panel. A real key binding, so it shows up in Controls and can be rebound. */
