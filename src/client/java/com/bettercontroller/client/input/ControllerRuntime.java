@@ -257,6 +257,7 @@ public final class ControllerRuntime {
     }
 
     private void tickInWorld(MinecraftClient client) {
+        guiNavigationHooks.onWorldTick();
         GameplayInputFrame frame = inputTranslator.translate(latestSnapshot, latestConfig, activeLayout);
         if (frame.chatTap()) {
             virtualKeyboardLauncher.requestOpenOnNextTextScreen(latestConfig);
