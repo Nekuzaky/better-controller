@@ -1,6 +1,7 @@
 package com.bettercontroller.client.gui;
 
 import com.bettercontroller.client.config.ControllerConfig;
+import com.bettercontroller.client.polling.ControllerAxis;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.Minecraft;
@@ -30,6 +31,10 @@ public final class GuiScreenNavigator {
     private static final int HIGHLIGHT_COLOR = 0xFFFFC66B;
     private static final int HIGHLIGHT_THICKNESS = 1;
 
+    /** Right-stick list scrolling: the same deadzone and pacing as the Fabric versions. */
+    private static final float SCROLL_STICK_DEADZONE = 0.20F;
+    private static final long SCROLL_BASE_INTERVAL_MS = 110L;
+
     private final GuiInputRouter router = new GuiInputRouter();
     private final VirtualKeyboardOverlay keyboard;
 
@@ -37,8 +42,11 @@ public final class GuiScreenNavigator {
     private List<GuiButton> boundButtons = new ArrayList<GuiButton>();
     /** Stand-ins for the screen's text fields; see {@link TextFieldTargets#targetsFor}. */
     private List<GuiButton> textTargets = new ArrayList<GuiButton>();
+    /** The screen's scrolling lists; see {@link SlotListTarget}. */
+    private List<SlotListTarget> lists = new ArrayList<SlotListTarget>();
     private GuiButton selected;
     private boolean justOpened;
+    private long lastScrollMs;
 
     public GuiScreenNavigator(VirtualKeyboardOverlay keyboard) {
         this.keyboard = keyboard;
@@ -55,10 +63,12 @@ public final class GuiScreenNavigator {
         boundButtons = buttons == null ? new ArrayList<GuiButton>() : buttons;
         // Rebuilt on every init, not only for a new screen: initGui creates its text fields anew.
         textTargets = TextFieldTargets.targetsFor(screen);
+        lists = SlotListTarget.find(screen);
         if (!sameScreen) {
             selected = null;
             suppressNextFrame();
-        } else if (selected != null && !boundButtons.contains(selected) && !textTargets.contains(selected)) {
+        } else if (selected != null && !boundButtons.contains(selected)
+            && !textTargets.contains(selected) && listFor(selected) == null) {
             selected = null;
         }
     }
@@ -67,8 +77,10 @@ public final class GuiScreenNavigator {
         boundScreen = null;
         boundButtons = new ArrayList<GuiButton>();
         textTargets = new ArrayList<GuiButton>();
+        lists = new ArrayList<SlotListTarget>();
         selected = null;
         justOpened = false;
+        lastScrollMs = 0L;
         router.reset();
     }
 
@@ -107,6 +119,7 @@ public final class GuiScreenNavigator {
             justOpened = false;
             return;
         }
+        scrollWithStick(snapshot, config, layout);
         if (!frame.anyNavigation()) {
             return;
         }
@@ -119,10 +132,20 @@ public final class GuiScreenNavigator {
             return;
         }
         if (selected == null || !candidates.contains(selected)) {
-            // A screen with somewhere to type is mostly about typing, so that is where it starts.
-            selected = textTargets.isEmpty() ? candidates.get(0) : textTargets.get(0);
+            selected = initialSelection(candidates);
         }
         handleFrame(client, frame, candidates);
+    }
+
+    /**
+     * A screen with somewhere to type is mostly about typing, and one with a list - worlds,
+     * servers - is mostly about the list, so that is where each starts.
+     */
+    private GuiButton initialSelection(List<GuiButton> candidates) {
+        if (!textTargets.isEmpty()) {
+            return textTargets.get(0);
+        }
+        return lists.isEmpty() ? candidates.get(0) : lists.get(0).target();
     }
 
     private void handleFrame(Minecraft client, GuiInputFrame frame, List<GuiButton> candidates) {
@@ -134,16 +157,23 @@ public final class GuiScreenNavigator {
             return;
         }
 
-        if (frame.up()) {
-            selected = nearestInDirection(candidates, selected, 0, -1);
-        } else if (frame.down()) {
-            selected = nearestInDirection(candidates, selected, 0, 1);
-        } else if (frame.left()) {
-            selected = nearestInDirection(candidates, selected, -1, 0);
-        } else if (frame.right()) {
-            selected = nearestInDirection(candidates, selected, 1, 0);
+        // On a list, up and down step through its entries, and only leave it past either end.
+        SlotListTarget list = listFor(selected);
+        boolean steppedInList = list != null && (frame.up() || frame.down())
+            && list.move(client.currentScreen, frame.down() ? 1 : -1);
+        if (!steppedInList) {
+            moveSelection(frame, candidates);
+            SlotListTarget entered = listFor(selected);
+            if (entered != null && entered != list) {
+                entered.enter(client.currentScreen);
+            }
         }
 
+        list = listFor(selected);
+        if (frame.confirm() && list != null) {
+            list.activate(client, client.currentScreen);
+            return;
+        }
         if (frame.confirm() && textTargets.contains(selected)) {
             summonKeyboard(client, client.currentScreen, selected);
             return;
@@ -161,9 +191,26 @@ public final class GuiScreenNavigator {
         }
     }
 
+    private void moveSelection(GuiInputFrame frame, List<GuiButton> candidates) {
+        if (frame.up()) {
+            selected = nearestInDirection(candidates, selected, 0, -1);
+        } else if (frame.down()) {
+            selected = nearestInDirection(candidates, selected, 0, 1);
+        } else if (frame.left()) {
+            selected = nearestInDirection(candidates, selected, -1, 0);
+        } else if (frame.right()) {
+            selected = nearestInDirection(candidates, selected, 1, 0);
+        }
+    }
+
     /** Draws the selection border. Called from DrawScreenEvent.Post so it sits above the button. */
     public void drawSelection(GuiScreen screen) {
         if (screen == null || screen != boundScreen || selected == null || !selected.visible) {
+            return;
+        }
+        SlotListTarget list = listFor(selected);
+        if (list != null) {
+            list.drawSelection();
             return;
         }
         int left = selected.x - HIGHLIGHT_THICKNESS;
@@ -179,12 +226,69 @@ public final class GuiScreenNavigator {
 
     private List<GuiButton> selectableButtons() {
         List<GuiButton> result = new ArrayList<GuiButton>(textTargets);
+        for (int i = 0; i < lists.size(); i++) {
+            lists.get(i).syncTarget();
+            result.add(lists.get(i).target());
+        }
         for (GuiButton button : boundButtons) {
             if (button != null && button.visible && button.enabled) {
                 result.add(button);
             }
         }
         return result;
+    }
+
+    /** The list a stand-in belongs to, or null. Indexed, not for-each: this runs every tick. */
+    private SlotListTarget listFor(GuiButton button) {
+        for (int i = 0; i < lists.size(); i++) {
+            if (lists.get(i).target() == button) {
+                return lists.get(i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Scrolls a list with the right stick, a mouse-wheel notch at a time, faster the further it is
+     * pushed. The selected list if there is one, otherwise the screen's first.
+     */
+    private void scrollWithStick(ControllerSnapshot snapshot, ControllerConfig config, ControllerConfig.ResolvedLayout layout) {
+        SlotListTarget list = listFor(selected);
+        if (list == null && !lists.isEmpty()) {
+            list = lists.get(0);
+        }
+        float value = list == null ? 0.0F : readScrollAxis(snapshot, config, layout);
+        float magnitude = Math.abs(value);
+        if (magnitude < SCROLL_STICK_DEADZONE) {
+            lastScrollMs = 0L;
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long interval = (long) (SCROLL_BASE_INTERVAL_MS / Math.max(0.25F, magnitude));
+        if (now - lastScrollMs < interval) {
+            return;
+        }
+        lastScrollMs = now;
+        // Stick up reads negative, and a negative scroll moves the content back towards the top.
+        list.scrollNotches(value < 0.0F ? -1 : 1);
+    }
+
+    /** The look stick's vertical axis, honouring its binding and the invert setting as Fabric does. */
+    private static float readScrollAxis(ControllerSnapshot snapshot, ControllerConfig config, ControllerConfig.ResolvedLayout layout) {
+        String token = layout.axisToken("look_y");
+        if (token == null || token.trim().isEmpty()) {
+            return 0.0F;
+        }
+        boolean invert = token.startsWith("-");
+        ControllerAxis axis = ControllerAxis.fromTokenOrNull(invert ? token.substring(1) : token);
+        if (axis == null) {
+            return 0.0F;
+        }
+        float value = snapshot.axis(axis);
+        if (invert) {
+            value = -value;
+        }
+        return config.invertLookY ? -value : value;
     }
 
     /**

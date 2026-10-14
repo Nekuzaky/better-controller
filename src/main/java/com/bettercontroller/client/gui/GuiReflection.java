@@ -4,6 +4,7 @@ import com.bettercontroller.BetterControllerMod;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiOptionSlider;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiSlot;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import java.lang.reflect.Field;
@@ -34,6 +35,10 @@ final class GuiReflection {
         GuiScreen.class, "buttonList", "field_146292_n");
     private static final Field OPTION_SLIDER_VALUE = findField(
         GuiOptionSlider.class, "sliderValue", "field_146134_p");
+    private static final Method SLOT_GET_SIZE = findMethod(
+        GuiSlot.class, "getSize", "func_148127_b");
+    private static final Method SLOT_ELEMENT_CLICKED = findMethod(
+        GuiSlot.class, "elementClicked", "func_148144_a", int.class, boolean.class, int.class, int.class);
 
     private GuiReflection() {
     }
@@ -76,15 +81,34 @@ final class GuiReflection {
         }
     }
 
-    private static boolean invoke(Method method, GuiScreen screen, Object... arguments) {
-        if (method == null || screen == null) {
+    /** How many entries a list has, or 0 when it cannot be asked. */
+    static int slotCount(GuiSlot list) {
+        if (SLOT_GET_SIZE == null || list == null) {
+            return 0;
+        }
+        try {
+            return ((Integer) SLOT_GET_SIZE.invoke(list)).intValue();
+        } catch (Exception failure) {
+            warnInvokeOnce("read a list's size", failure);
+            return 0;
+        }
+    }
+
+    /** Clicks a list entry the way the mouse would, through the list's own handler. */
+    static boolean elementClicked(GuiSlot list, int index, boolean doubleClick, int mouseX, int mouseY) {
+        return invoke(SLOT_ELEMENT_CLICKED, list, Integer.valueOf(index), Boolean.valueOf(doubleClick),
+            Integer.valueOf(mouseX), Integer.valueOf(mouseY));
+    }
+
+    private static boolean invoke(Method method, Object target, Object... arguments) {
+        if (method == null || target == null) {
             return false;
         }
         try {
-            method.invoke(screen, arguments);
+            method.invoke(target, arguments);
             return true;
         } catch (Exception failure) {
-            warnInvokeOnce("call GuiScreen." + method.getName(), failure);
+            warnInvokeOnce("call " + method.getDeclaringClass().getSimpleName() + "." + method.getName(), failure);
             return false;
         }
     }
