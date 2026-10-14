@@ -4,7 +4,9 @@ All notable changes to BetterController are documented in this file. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-14
+
+Brings the 1.21.11 line level with 1.20.1 and 26.2.
 
 ### Added
 - A pad GLFW has no mapping for is no longer a silent dead end. Drop the device's
@@ -23,6 +25,16 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   only the controller name was actually displayed.
 
 ### Changed
+- Menu navigation is calmer: the first repeat comes after 300 ms, then one
+  step every 170 ms (was 140 / 55 ms, which moved the selection almost every
+  tick). Configs still on the old defaults are migrated (schema 11); custom
+  values are kept.
+- The JAR and the release tag carry the Minecraft version:
+  `bettercontroller-0.3.0+1.21.11.jar`, tag `v0.3.0+1.21.11`. Every version branch
+  ships the same mod version, and the names no longer collide.
+- Built with Fabric Loom 1.18.4, Gradle 9.8.1, Fabric Loader 0.19.5 and Fabric
+  API 0.141.6. Loom 1.18 runs Gradle on Java 25; players still need only the
+  Java their Minecraft version ships with.
 - The `Controller Settings…` button is positioned relative to the screen's own
   bottom-most widget instead of at fixed coordinates, so it reads as part of the
   vanilla layout at any window size or GUI scale. It no longer floats in the title
@@ -44,10 +56,42 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   instead of 4 ms, so the camera no longer speeds up above ~250 fps.
 
 ### Fixed
+- Analog movement never reached the player. The stick deflection was written
+  before `KeyboardInput.tick`, which rebuilds and normalises the movement vector
+  from the key bindings, so any push past the deadzone moved at full walking
+  speed. It is applied after that method now, and only while the stick is
+  actually deflected - writing unconditionally would replace keyboard movement
+  with a centred stick's zero.
+- The sideways axis was mirrored. Vanilla treats a positive value as strafing
+  left; the stick reports positive to the right. Invisible while the value was
+  being discarded.
+- Confirming a slider with `A` snapped it to 50%: the synthetic click landed at
+  the widget's centre and `SliderWidget` sets its value from the click position.
+  Sliders are adjusted with left/right, so confirm ignores them.
+- With a controller pinned but absent, the `F8` overlay blamed a missing GLFW
+  mapping instead of the pin.
+- A button still held when a screen closed acted in the world on the next
+  tick: the `B` that closed the inventory or pause menu dropped the held item,
+  `A` on *Back to Game* jumped, `RT` / `LT` attacked or used. Buttons held
+  across a screen now have to be released once before they act in the world.
+  Sneak and sprint still carry over, so letting go at a ledge is not forced.
+- The first frame of a screen opened from the world no longer reacts to the
+  button that opened it. `DPAD_UP` for chat doubles as menu-up and used to move
+  the selection off the chat field; `LT` on a chest paged back.
+- The virtual keyboard no longer auto-repeats `A`: holding it on a key typed
+  that key over and over.
+- The last screen, its widgets and its slots stayed referenced after returning
+  to the world. They are released now, and the cursor capture state with them,
+  so the next inventory hides the mouse cursor again while the pad drives it.
 - Camera look froze while the HUD was hidden (`F1`). The camera was driven from a
   HUD element, which vanilla skips when the HUD is off; it now runs from the
   renderer. HUD hints and the debug overlay stay on the HUD element.
 - The mod shipped without an icon, so it showed up blank in the Fabric mod list.
+
+### Removed
+- `examples/bettercontroller.example.json` still described the pre-0.1.0
+  config (per-controller layouts, radial menu, vibration). It is now a copy of
+  the shipped defaults.
 
 ### Internal
 - `InputTranslator.translate` no longer produces look; the frame-paced
@@ -122,4 +166,5 @@ Minecraft Java with a gamepad*; everything else has been removed.
 - `ControllerPreset` and multi-layout overrides
   (xbox / playstation / switch / generic).
 
-[0.1.0]: https://github.com/Nekuzaky/BetterController/releases/tag/v0.1.0
+[0.3.0]: https://github.com/Nekuzaky/better-controller/releases/tag/v0.3.0+1.21.11
+[0.1.0]: https://github.com/Nekuzaky/better-controller/releases/tag/v0.1.0

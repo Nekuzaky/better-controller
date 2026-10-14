@@ -6,30 +6,45 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nekuzaky/BetterController/actions/workflows/ci.yml">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nekuzaky/BetterController/ci.yml?branch=main&label=CI&logo=github">
+  <a href="https://github.com/Nekuzaky/better-controller/actions/workflows/ci.yml">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nekuzaky/better-controller/ci.yml?branch=mc%2F1.21.11&label=CI&logo=github">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/releases/latest">
-    <img alt="Release" src="https://img.shields.io/github/v/release/Nekuzaky/BetterController?include_prereleases&sort=semver&label=release&color=blue">
+  <a href="https://github.com/Nekuzaky/better-controller/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/Nekuzaky/better-controller?include_prereleases&sort=semver&label=release&color=blue">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/releases">
-    <img alt="Downloads" src="https://img.shields.io/github/downloads/Nekuzaky/BetterController/total?color=brightgreen">
+  <a href="https://github.com/Nekuzaky/better-controller/releases">
+    <img alt="Downloads" src="https://img.shields.io/github/downloads/Nekuzaky/better-controller/total?color=brightgreen">
+  </a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/bettercontroller">
+    <img alt="CurseForge" src="https://img.shields.io/badge/curseforge-download-F16436?logo=curseforge&logoColor=white">
   </a>
   <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-1.21.11-62b132?logo=minecraft&logoColor=white">
-  <img alt="Fabric" src="https://img.shields.io/badge/fabric-0.18.4-blueviolet">
+  <img alt="Fabric" src="https://img.shields.io/badge/fabric-0.19.5-blueviolet">
   <img alt="Java" src="https://img.shields.io/badge/java-21-orange?logo=openjdk&logoColor=white">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Nekuzaky/BetterController?color=blue"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Nekuzaky/better-controller?color=blue"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nekuzaky/BetterController/issues">
-    <img alt="Issues" src="https://img.shields.io/github/issues/Nekuzaky/BetterController?color=informational">
+  <a href="https://github.com/Nekuzaky/better-controller/issues">
+    <img alt="Issues" src="https://img.shields.io/github/issues/Nekuzaky/better-controller?color=informational">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/pulls">
-    <img alt="Pull requests" src="https://img.shields.io/github/issues-pr/Nekuzaky/BetterController?color=informational">
+  <a href="https://github.com/Nekuzaky/better-controller/pulls">
+    <img alt="Pull requests" src="https://img.shields.io/github/issues-pr/Nekuzaky/better-controller?color=informational">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/stargazers">
-    <img alt="Stars" src="https://img.shields.io/github/stars/Nekuzaky/BetterController?style=social">
+  <a href="https://github.com/Nekuzaky/better-controller/stargazers">
+    <img alt="Stars" src="https://img.shields.io/github/stars/Nekuzaky/better-controller?style=social">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/Nekuzaky">
+    <img alt="Buy Me a Coffee" src="https://img.shields.io/badge/buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=black">
+  </a>
+  <a href="https://www.patreon.com/Nekuzaky">
+    <img alt="Patreon" src="https://img.shields.io/badge/patreon-support-FF424D?logo=patreon&logoColor=white">
+  </a>
+  <a href="https://github.com/sponsors/Nekuzaky">
+    <img alt="GitHub Sponsors" src="https://img.shields.io/badge/sponsors-support-EA4AAA?logo=githubsponsors&logoColor=white">
   </a>
 </p>
 
@@ -66,8 +81,13 @@ stay small, predictable and allocation-free while doing it.
 
 1. [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) in `mods/`.
-3. `bettercontroller-<version>.jar` from the [latest release](https://github.com/Nekuzaky/BetterController/releases/latest) in `mods/`.
+3. `bettercontroller-<version>+1.21.11.jar` in `mods/`, from either
+   [CurseForge](https://www.curseforge.com/minecraft/mc-mods/bettercontroller)
+   or the [GitHub releases](https://github.com/Nekuzaky/better-controller/releases).
 4. Launch. Plug a controller. Done.
+
+Using a launcher with a mod manager (CurseForge app, Prism, MultiMC)? Install
+from CurseForge and it handles the Fabric API dependency for you.
 
 ## Default bindings
 
@@ -226,32 +246,36 @@ InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
 ./gradlew runClient
 ```
 
-Artifacts land in `build/libs/bettercontroller-<version>.jar`.
+Artifacts land in `build/libs/bettercontroller-<version>+1.21.11.jar`.
 
-Requires JDK 21 (Temurin, JBR, GraalVM — anything Java 21).
+Gradle runs on JDK 25 (Fabric Loom 1.18 requires it); the mod itself is
+compiled for Java 21, so players keep the Java Minecraft 1.21.11 ships with.
+Set `JAVA_HOME` to a JDK 25 before running the wrapper.
 
 ## Branching model
 
-The repo tracks several Minecraft versions in parallel:
+One branch per Minecraft version. Each is complete on its own: it builds,
+tests, releases and gets patched independently.
 
-| Branch              | Tracks                                  | Status      |
-|---------------------|-----------------------------------------|-------------|
-| `main`              | Latest supported Minecraft version      | stable      |
-| `develop`           | Active development for the latest version | active    |
-| `fabric-1.21.11`    | Frozen archive — Fabric 0.18.4, MC 1.21.11 | maintenance |
+| Branch       | Minecraft | Loader | Players need | Build JDK |
+|--------------|-----------|--------|--------------|-----------|
+| `main`       | 26.2      | Fabric | Java 25      | 25        |
+| `mc/1.21.11` | 1.21.11   | Fabric | Java 21      | 25        |
+| `mc/1.20.1`  | 1.20.1    | Fabric | Java 17      | 25        |
+| `mc/1.12.2`  | 1.12.2    | Forge  | Java 8       | 8         |
 
-When Minecraft cuts a new major (e.g. 26.x), `main` migrates to it and the
-previous line gets a `fabric-<version>` branch so old releases stay
-buildable and patchable. To build a specific version, check out the
-matching branch:
+`main` always tracks the newest supported Minecraft. When a new version is
+ported, the previous one moves to its own `mc/<version>` branch.
 
 ```bash
-git checkout fabric-1.21.11
+git checkout mc/1.21.11
 ./gradlew build
 ```
 
-Tags (`v0.1.0`, etc.) always point to the commit that produced a published
-release, regardless of which version branch it lives on.
+Releases are tagged `v<mod>+<minecraft>` (e.g. `v0.3.0+1.21.11`) and the JAR
+is named the same way, so every line can ship the same mod version without
+collisions. The release workflow refuses a tag whose version or Minecraft
+version doesn't match the branch it was pushed from.
 
 ## FAQ
 
@@ -281,7 +305,7 @@ Two different problems hide behind that sentence — press `F8` to tell them apa
 
 **The overlay names your pad but the glyphs are wrong.** The pad works; only the
 type heuristic missed. Open an
-[issue](https://github.com/Nekuzaky/BetterController/issues/new?template=bug_report.yml)
+[issue](https://github.com/Nekuzaky/better-controller/issues/new?template=bug_report.yml)
 with the name and GUID shown by `F8`; detection is heuristic and easy to extend.
 
 **The overlay says there is no usable gamepad.** GLFW only reports a joystick as
@@ -303,12 +327,26 @@ would dwarf the mod itself, for a case most players never hit.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The TL;DR:
 
-- Branch from `develop`, target `develop` in your PR.
+- Branch from the version branch you're fixing (`main` for the newest
+  Minecraft) and target it in your PR.
 - One concern per PR.
 - Test with a real controller and describe what you tested.
 
 Read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and
 [SECURITY.md](SECURITY.md) for the rest.
+
+## Support
+
+BetterController is free and MIT-licensed, and it stays that way. If it made
+your gamepad usable and you want to help cover the time spent chasing
+Minecraft version bumps and controller quirks:
+
+- [**Buy Me a Coffee**](https://buymeacoffee.com/Nekuzaky) — one-off, no account needed.
+- [**Patreon**](https://www.patreon.com/Nekuzaky) — monthly, for build previews and version-bump notes.
+- [**GitHub Sponsors**](https://github.com/sponsors/Nekuzaky) — same thing, billed through GitHub.
+
+Nothing in the mod is paywalled and nothing ever will be. Starring the repo
+and filing good bug reports helps just as much.
 
 ## License
 
