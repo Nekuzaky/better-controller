@@ -9,6 +9,10 @@ import net.minecraft.client.MinecraftClient;
 import java.util.function.Consumer;
 
 public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
+    private static final GuiInputFrame IDLE_FRAME = new GuiInputFrame(
+        false, false, false, false, false, false, false, false, false, false
+    );
+
     private final ControllerInventorySelectionState inventorySelectionState;
     private final GuiNavigationController navigationController;
     private final GuiInputRouter inputRouter = new GuiInputRouter();
@@ -41,9 +45,18 @@ public final class ControllerGuiNavigationHooks implements GuiNavigationHooks {
             return;
         }
 
+        boolean justOpened = !inScreen;
         inScreen = true;
-        boolean allowConfirmRepeat = client.currentScreen instanceof ControllerVirtualKeyboardScreen;
-        GuiInputFrame frame = inputRouter.route(snapshot, config, layout, inputTranslator, allowConfirmRepeat);
+        // No confirm-repeat anywhere, the virtual keyboard included: holding A typed the key over
+        // and over, and the cap it applies dragged the whole keyboard onto a much faster repeat.
+        GuiInputFrame frame = inputRouter.route(snapshot, config, layout, inputTranslator, false);
+        if (justOpened) {
+            // Routing still had to run: it records what is held right now, so the next tick only
+            // reports genuine presses. The frame itself is dropped - its buttons are the ones that
+            // opened this screen from the world, such as DPAD_UP, which opens chat (and with it
+            // the virtual keyboard) and is also menu-up.
+            frame = IDLE_FRAME;
+        }
 
         navigationController.onScreenTick(client, frame, request -> {
             if (request && virtualKeyboardRequest != null) {
