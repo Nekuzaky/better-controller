@@ -5,7 +5,6 @@ import org.lwjgl.glfw.GLFW;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 public enum ControllerButton {
     SOUTH(GLFW.GLFW_GAMEPAD_BUTTON_A, "SOUTH", "A", "CROSS", "XBOX_A", "PS_CROSS", "SWITCH_B", "NINTENDO_B"),
@@ -51,10 +50,6 @@ public enum ControllerButton {
             return null;
         }
         return LOOKUP.get(normalize(token));
-    }
-
-    public static Optional<ControllerButton> fromToken(String token) {
-        return Optional.ofNullable(fromTokenOrNull(token));
     }
 
     private static String normalize(String token) {

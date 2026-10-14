@@ -5,7 +5,6 @@ import org.lwjgl.glfw.GLFW;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 public enum ControllerAxis {
     LEFT_X(GLFW.GLFW_GAMEPAD_AXIS_LEFT_X, false, "LEFT_X", "LX"),
@@ -68,10 +67,6 @@ public enum ControllerAxis {
             return null;
         }
         return LOOKUP.get(normalize(token));
-    }
-
-    public static Optional<ControllerAxis> fromToken(String token) {
-        return Optional.ofNullable(fromTokenOrNull(token));
     }
 
     private static String normalize(String token) {

@@ -82,18 +82,6 @@ public final class ControllerRuntime {
     public ControllerGlyphService glyphs() { return glyphService; }
     public ControllerInventorySelectionState inventorySelectionState() { return inventorySelectionState; }
 
-    public boolean isHudHintsEnabled() {
-        return latestConfig != null && latestConfig.hudHintsEnabled;
-    }
-
-    public void setHudHintsEnabled(boolean enabled) {
-        updateConfig(config -> config.hudHintsEnabled = enabled);
-    }
-
-    public void setDebugOverlayEnabled(boolean enabled) {
-        updateConfig(config -> config.debugOverlayEnabled = enabled);
-    }
-
     public String runtimeStatusMessage() {
         if (runtimeStatusMessage.isBlank()) {
             return "";
@@ -117,15 +105,6 @@ public final class ControllerRuntime {
         ControllerConfig config = mutableConfig();
         updater.accept(config);
         latestConfig = configManager.save(config);
-    }
-
-    public void previewConfig(Consumer<ControllerConfig> updater) {
-        if (updater == null) {
-            return;
-        }
-        ControllerConfig config = mutableConfig();
-        updater.accept(config);
-        latestConfig = config;
     }
 
     /**

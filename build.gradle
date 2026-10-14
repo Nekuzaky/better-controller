@@ -2,7 +2,6 @@ plugins {
     // 26.1 is unobfuscated: use the new "net.fabricmc.fabric-loom" plugin
     // (the legacy "fabric-loom" plugin only handles obfuscated MC versions).
     id 'net.fabricmc.fabric-loom' version '1.18.4'
-    id 'maven-publish'
     id 'jacoco'
 }
 
@@ -105,17 +104,5 @@ jar {
     def archivesName = base.archivesName.get()
     from("LICENSE") {
         rename { "${it}_${archivesName}" }
-    }
-}
-
-publishing {
-    publications {
-        create("mavenJava", MavenPublication) {
-            artifactId = project.archives_base_name
-            from components.java
-        }
-    }
-
-    repositories {
     }
 }

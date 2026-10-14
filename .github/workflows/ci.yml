@@ -57,7 +57,9 @@ jobs:
         with:
           name: coverage-report
           path: build/reports/jacoco/test/html/
-          if-no-files-found: ignore
+          # The report is always produced (test is finalizedBy jacocoTestReport), so a missing
+          # one means report generation broke -- which should be loud, not a silent no-op.
+          if-no-files-found: error
 
       - name: Upload mod JAR
         if: success()
