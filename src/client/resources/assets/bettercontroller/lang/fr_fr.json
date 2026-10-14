@@ -13,7 +13,7 @@
   "bettercontroller.screen.virtual_keyboard.cancel": "Annuler",
   "bettercontroller.screen.virtual_keyboard.enter": "Valider",
   "bettercontroller.screen.virtual_keyboard.cursor_pos": "Curseur %s/%s",
-  "bettercontroller.screen.virtual_keyboard.help": "A : Confirmer la touche (maintenir pour répéter)  B : Annuler",
+  "bettercontroller.screen.virtual_keyboard.help": "A : Confirmer la touche  B : Annuler",
   "bettercontroller.screen.virtual_keyboard.lowercase": "Minuscules",
   "bettercontroller.screen.virtual_keyboard.uppercase": "Majuscules",
   "bettercontroller.screen.virtual_keyboard.selected_key": "Touche sélectionnée : %s"

@@ -3,14 +3,15 @@
   "id": "bettercontroller",
   "version": "${version}",
   "name": "BetterController",
-  "description": "Client-side gamepad support for Minecraft Java. Analog look + movement, full GUI navigation, creative double-tap fly, virtual keyboard for chat.",
+  "description": "Play Minecraft Java with any gamepad. Analog look and movement, full GUI navigation, creative double-tap fly, and a virtual keyboard for chat - in a deliberately small, client-side mod.",
   "authors": [
     "Nekuzaky"
   ],
+  "icon": "assets/bettercontroller/icon.png",
   "contact": {
-    "homepage": "https://github.com/Nekuzaky/BetterController",
-    "sources": "https://github.com/Nekuzaky/BetterController",
-    "issues": "https://github.com/Nekuzaky/BetterController/issues"
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/bettercontroller",
+    "sources": "https://github.com/Nekuzaky/better-controller",
+    "issues": "https://github.com/Nekuzaky/better-controller/issues"
   },
   "license": "MIT",
   "environment": "client",
@@ -25,7 +26,7 @@
   "depends": {
     "fabricloader": ">=0.18.4",
     "fabric-api": "*",
-    "minecraft": "~1.21.11",
-    "java": ">=21"
+    "minecraft": "~26.2",
+    "java": ">=25"
   }
 }

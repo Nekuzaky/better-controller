@@ -3,12 +3,23 @@ package com.bettercontroller.client.polling;
 import org.lwjgl.glfw.GLFWGamepadState;
 
 public final class ControllerSnapshot {
+    private static final ControllerButton[] BUTTONS = ControllerButton.values();
+    private static final ControllerAxis[] AXES = ControllerAxis.values();
+
     private int joystickId = -1;
     private String joystickName = "Unknown";
     private String joystickGuid = "";
     private ControllerType controllerType = ControllerType.NONE;
-    private final boolean[] buttons = new boolean[ControllerButton.values().length];
-    private final float[] axes = new float[ControllerAxis.values().length];
+    private final boolean[] buttons = new boolean[BUTTONS.length];
+    private final float[] axes = restingAxes();
+
+    private static float[] restingAxes() {
+        float[] resting = new float[AXES.length];
+        for (int i = 0; i < AXES.length; i++) {
+            resting[i] = AXES[i].restingValue();
+        }
+        return resting;
+    }
 
     public void update(
         int joystickId,
@@ -22,11 +33,19 @@ public final class ControllerSnapshot {
         this.joystickGuid = joystickGuid == null ? "" : joystickGuid;
         this.controllerType = controllerType == null ? ControllerType.GENERIC : controllerType;
 
-        for (ControllerButton button : ControllerButton.values()) {
-            buttons[button.ordinal()] = state.buttons(button.glfwButtonId()) != 0;
+        for (int i = 0; i < BUTTONS.length; i++) {
+            buttons[i] = state.buttons(BUTTONS[i].glfwButtonId()) != 0;
         }
-        for (ControllerAxis axis : ControllerAxis.values()) {
-            axes[axis.ordinal()] = state.axes(axis.glfwAxisId());
+        refreshAxes(state);
+    }
+
+    /**
+     * Refreshes only the analog axes. Called once per rendered frame so the camera reads a stick
+     * position sampled this frame instead of one sampled up to a full client tick ago.
+     */
+    public void refreshAxes(GLFWGamepadState state) {
+        for (int i = 0; i < AXES.length; i++) {
+            axes[i] = state.axes(AXES[i].glfwAxisId());
         }
     }
 
@@ -39,7 +58,7 @@ public final class ControllerSnapshot {
             buttons[i] = false;
         }
         for (int i = 0; i < axes.length; i++) {
-            axes[i] = 0.0F;
+            axes[i] = AXES[i].restingValue();
         }
     }
 

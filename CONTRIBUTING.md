@@ -13,7 +13,8 @@ When in doubt, open an issue first.
 
 ## Development setup
 
-- JDK 21 (Temurin, JBR, GraalVM... anything Java 21 works).
+- JDK 25 to run Gradle, with `JAVA_HOME` pointing at it (the mod is compiled
+  for Java 25).
 - The Gradle wrapper handles everything else.
 
 ```bash
@@ -42,20 +43,21 @@ adapted to Java:
 5. **Validate at the boundary, not inside hot paths.** Public methods reject
    `null` early; internal helpers may assume valid input.
 
-CI runs `./gradlew build` with `-Xlint:all` on every push to `main`,
-`develop`, and `feature/**` / `fix/**` branches. New warnings are noise; fix
-them.
+CI runs `./gradlew build` with `-Xlint:all` on every push to `main` and
+`mc/**`. New warnings are noise; fix them.
 
 ## Branching
 
-- `main` is the stable branch. Tagged releases are cut from here.
-- `develop` is the integration branch. PRs land here first.
-- Feature work: `feature/<short-name>`.
-- Bug fixes: `fix/<short-name>`.
+- One branch per Minecraft version: `main` for the newest, `mc/<version>`
+  for the others. See the table in the README.
+- Feature work: `feature/<short-name>`, bug fixes: `fix/<short-name>`,
+  both cut from the version branch they target.
+- A fix that applies to several versions lands on each branch separately.
+- Releases are tagged `v<mod>+<minecraft>` from the version branch.
 
 ## Pull requests
 
-- Target `develop`.
+- Target the version branch you branched from.
 - Fill in the PR template (summary, type, test plan).
 - Tests are required for new translation / config logic. Manual gamepad
   testing is required for any change to the input or GUI navigation layer;

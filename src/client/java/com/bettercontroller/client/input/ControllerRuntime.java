@@ -6,20 +6,33 @@ import com.bettercontroller.client.config.ControllerConfigManager;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
 import com.bettercontroller.client.gui.ControllerGuiNavigationHooks;
 import com.bettercontroller.client.gui.ControllerInventorySelectionState;
+import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerPoller;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.polling.ControllerType;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import com.bettercontroller.client.translation.InputTranslator;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
 public final class ControllerRuntime {
-    private static final long LOOK_DELTA_MIN_MS = 4L;
-    private static final long LOOK_DELTA_MAX_MS = 75L;
+    private static final long NANOS_PER_MS = 1_000_000L;
+    private static final long LOOK_DELTA_MIN_NANOS = NANOS_PER_MS;
+    private static final long LOOK_DELTA_MAX_NANOS = 75L * NANOS_PER_MS;
+    private static final long LOOK_DELTA_DEFAULT_NANOS = 16L * NANOS_PER_MS;
+    private static final double LOOK_REFERENCE_SECONDS = 1.0D / 30.0D;
+    /**
+     * Weight of the newest frame in the smoothed frame delta. A stick reports a rate, so the angle
+     * turned is rate x elapsed time - and the only elapsed time available is the previous frame's.
+     * Under uneven frame pacing that turns frame-time noise into camera-speed noise, which a mouse
+     * never suffers because its hardware reports an already-integrated displacement. Averaging a
+     * few frames removes the noise; being a mean, it leaves the average turn rate untouched.
+     */
+    private static final float FRAME_DELTA_SMOOTHING = 0.25F;
     private static final long STATUS_CONNECTED_MS = 3000L;
     private static final long STATUS_DISCONNECTED_MS = 3200L;
     private static final long STATUS_PROFILE_SWITCH_MS = 2400L;
@@ -42,7 +55,9 @@ public final class ControllerRuntime {
     private ControllerConfig.ResolvedLayout activeLayout;
     private ControllerType activeControllerType = ControllerType.NONE;
     private GameplayInputFrame latestFrame;
-    private long lastRenderLookUpdateMs;
+    private long lastRenderLookUpdateNanos;
+    private float smoothedFrameSeconds;
+    private boolean mappingsApplied;
     private boolean wasControllerConnected;
     private int previousJoystickId = -1;
     private ControllerType previousControllerType = ControllerType.NONE;
@@ -67,23 +82,11 @@ public final class ControllerRuntime {
     public ControllerGlyphService glyphs() { return glyphService; }
     public ControllerInventorySelectionState inventorySelectionState() { return inventorySelectionState; }
 
-    public boolean isHudHintsEnabled() {
-        return latestConfig != null && latestConfig.hudHintsEnabled;
-    }
-
-    public void setHudHintsEnabled(boolean enabled) {
-        updateConfig(config -> config.hudHintsEnabled = enabled);
-    }
-
-    public void setDebugOverlayEnabled(boolean enabled) {
-        updateConfig(config -> config.debugOverlayEnabled = enabled);
-    }
-
     public String runtimeStatusMessage() {
         if (runtimeStatusMessage.isBlank()) {
             return "";
         }
-        if (System.currentTimeMillis() > runtimeStatusMessageUntilMs) {
+        if (monotonicNowMs() > runtimeStatusMessageUntilMs) {
             runtimeStatusMessage = "";
             runtimeStatusMessageUntilMs = 0L;
             return "";
@@ -104,22 +107,43 @@ public final class ControllerRuntime {
         latestConfig = configManager.save(config);
     }
 
-    public void previewConfig(Consumer<ControllerConfig> updater) {
-        if (updater == null) {
+    /**
+     * Applies the analog stick to vanilla movement, called from KeyboardInputMixin at the point
+     * where the values survive until the player reads them. Does nothing unless a controller is
+     * driving the game, so vanilla keyboard movement is untouched otherwise.
+     */
+    public void applyAnalogMovement(ClientInput input) {
+        if (latestConfig == null || !latestConfig.autoActivateOnController) {
             return;
         }
-        ControllerConfig config = mutableConfig();
-        updater.accept(config);
-        latestConfig = config;
+        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
+            return;
+        }
+        inputApplier.applyAnalogMovement(input, latestFrame);
     }
 
-    public void tick(MinecraftClient client) {
+    /** Name and GUID of a connected joystick GLFW cannot drive, or null. */
+    public String unmappedJoystick() {
+        return controllerPoller.unmappedJoystick();
+    }
+
+    public void tick(Minecraft client) {
         if (client == null) {
             return;
         }
 
+        // Deferred to the first tick rather than done at mod init: this calls GLFW, and a tick
+        // only ever runs once the window - and therefore GLFW - is up.
+        if (!mappingsApplied) {
+            mappingsApplied = true;
+            ControllerMappings.applyUserMappings(configManager.configPath().getParent());
+        }
+
         latestConfig = configManager.getConfig();
-        latestSnapshot = controllerPoller.pollSnapshot();
+        latestSnapshot = controllerPoller.pollSnapshot(
+            latestConfig.preferredControllerGuid,
+            latestConfig.preferredJoystickIndex
+        );
 
         if (latestSnapshot == null || !latestSnapshot.isConnected()) {
             tickWhileDisconnected(client);
@@ -131,24 +155,24 @@ public final class ControllerRuntime {
             tickWhileSuspended(client);
             return;
         }
-        if (client.currentScreen != null) {
+        if (client.gui.screen() != null) {
             tickInScreen(client);
             return;
         }
-        if (client.player == null || client.world == null) {
+        if (client.player == null || client.level == null) {
             tickWhileInactive(client);
             return;
         }
         tickInWorld(client);
     }
 
-    private void tickWhileDisconnected(MinecraftClient client) {
+    private void tickWhileDisconnected(Minecraft client) {
         activeControllerType = ControllerType.NONE;
         activeLayout = null;
         latestFrame = inputTranslator.emptyFrame();
         glyphService.updateControllerType(ControllerType.NONE);
         if (wasControllerConnected) {
-            pushRuntimeStatus(Text.translatable("bettercontroller.status.disconnected").getString(), STATUS_DISCONNECTED_MS);
+            pushRuntimeStatus(Component.translatable("bettercontroller.status.disconnected").getString(), STATUS_DISCONNECTED_MS);
         }
         wasControllerConnected = false;
         previousJoystickId = -1;
@@ -166,7 +190,7 @@ public final class ControllerRuntime {
 
         if (!wasControllerConnected || previousJoystickId != latestSnapshot.joystickId()) {
             pushRuntimeStatus(
-                Text.translatable(
+                Component.translatable(
                     "bettercontroller.status.connected",
                     latestSnapshot.joystickName(),
                     activeControllerType
@@ -175,7 +199,7 @@ public final class ControllerRuntime {
             );
         } else if (previousControllerType != activeControllerType) {
             pushRuntimeStatus(
-                Text.translatable("bettercontroller.status.profile_switched", activeControllerType).getString(),
+                Component.translatable("bettercontroller.status.profile_switched", activeControllerType).getString(),
                 STATUS_PROFILE_SWITCH_MS
             );
         }
@@ -184,7 +208,7 @@ public final class ControllerRuntime {
         previousControllerType = activeControllerType;
     }
 
-    private void tickWhileSuspended(MinecraftClient client) {
+    private void tickWhileSuspended(Minecraft client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
         inputTranslator.resetState();
@@ -192,24 +216,27 @@ public final class ControllerRuntime {
         resetRenderLookClock();
     }
 
-    private void tickInScreen(MinecraftClient client) {
+    private void tickInScreen(Minecraft client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
-        inputTranslator.resetState();
+        // Not resetState(): whatever is held while the screen closes must not read as a fresh
+        // press on the first tick back in the world.
+        inputTranslator.rememberHeldWhileIdle(latestSnapshot, latestConfig, activeLayout);
         virtualKeyboardLauncher.processPending(latestConfig);
         guiNavigationHooks.onScreenTick(client, latestSnapshot, latestConfig, activeLayout);
         resetRenderLookClock();
     }
 
-    private void tickWhileInactive(MinecraftClient client) {
+    private void tickWhileInactive(Minecraft client) {
         latestFrame = inputTranslator.emptyFrame();
         inputApplier.releaseGameplayHolds(client);
-        inputTranslator.resetState();
+        inputTranslator.rememberHeldWhileIdle(latestSnapshot, latestConfig, activeLayout);
         guiNavigationHooks.reset();
         resetRenderLookClock();
     }
 
-    private void tickInWorld(MinecraftClient client) {
+    private void tickInWorld(Minecraft client) {
+        guiNavigationHooks.onWorldTick();
         GameplayInputFrame frame = inputTranslator.translate(latestSnapshot, latestConfig, activeLayout);
         if (frame.chatTap()) {
             virtualKeyboardLauncher.requestOpenOnNextTextScreen(latestConfig);
@@ -218,26 +245,21 @@ public final class ControllerRuntime {
         latestFrame = frame;
     }
 
-    public void onRenderFrame(MinecraftClient client) {
-        if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
-            resetRenderLookClock();
-            return;
-        }
-        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
-            resetRenderLookClock();
-            return;
-        }
-        if (client.currentScreen != null || client.player == null || client.world == null) {
+    /**
+     * Camera path, run once per rendered frame. The look axes are re-sampled here rather than in
+     * {@link #tick} so the stick is read at frame rate instead of at the 20 Hz client tick.
+     */
+    public void onRenderFrame(Minecraft client) {
+        if (!isLookActive(client)) {
             resetRenderLookClock();
             return;
         }
 
-        long now = System.currentTimeMillis();
-        long deltaMs = lastRenderLookUpdateMs == 0L ? 16L : now - lastRenderLookUpdateMs;
-        deltaMs = Math.max(LOOK_DELTA_MIN_MS, Math.min(deltaMs, LOOK_DELTA_MAX_MS));
-        lastRenderLookUpdateMs = now;
+        float deltaSeconds = advanceRenderLookClock();
+        latestSnapshot = controllerPoller.refreshAxes();
+        inputTranslator.updateLook(latestSnapshot, latestConfig, activeLayout, latestFrame, deltaSeconds);
 
-        double baseScale = deltaMs / 33.333D;
+        double baseScale = deltaSeconds / LOOK_REFERENCE_SECONDS;
         double speedMultiplier = latestConfig.lookSpeedMultiplier;
         double stickMagnitude = Math.max(
             Math.abs(latestFrame.processedLookX()),
@@ -252,8 +274,39 @@ public final class ControllerRuntime {
         );
     }
 
+    private boolean isLookActive(Minecraft client) {
+        if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
+            return false;
+        }
+        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
+            return false;
+        }
+        if (activeLayout == null) {
+            return false;
+        }
+        return client.gui.screen() == null && client.player != null && client.level != null;
+    }
+
+    private float advanceRenderLookClock() {
+        long now = System.nanoTime();
+        long deltaNanos = lastRenderLookUpdateNanos == 0L
+            ? LOOK_DELTA_DEFAULT_NANOS
+            : now - lastRenderLookUpdateNanos;
+        deltaNanos = Math.max(LOOK_DELTA_MIN_NANOS, Math.min(deltaNanos, LOOK_DELTA_MAX_NANOS));
+        lastRenderLookUpdateNanos = now;
+
+        float rawSeconds = (float) (deltaNanos / 1_000_000_000.0D);
+        if (smoothedFrameSeconds <= 0.0F) {
+            smoothedFrameSeconds = rawSeconds;
+        } else {
+            smoothedFrameSeconds += (rawSeconds - smoothedFrameSeconds) * FRAME_DELTA_SMOOTHING;
+        }
+        return smoothedFrameSeconds;
+    }
+
     private void resetRenderLookClock() {
-        lastRenderLookUpdateMs = 0L;
+        lastRenderLookUpdateNanos = 0L;
+        smoothedFrameSeconds = 0.0F;
     }
 
     private static double clamp(double value, double min, double max) {
@@ -273,6 +326,15 @@ public final class ControllerRuntime {
             return;
         }
         runtimeStatusMessage = message;
-        runtimeStatusMessageUntilMs = System.currentTimeMillis() + durationMs;
+        runtimeStatusMessageUntilMs = monotonicNowMs() + durationMs;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

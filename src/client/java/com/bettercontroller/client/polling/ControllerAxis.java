@@ -5,7 +5,6 @@ import org.lwjgl.glfw.GLFW;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 public enum ControllerAxis {
     LEFT_X(GLFW.GLFW_GAMEPAD_AXIS_LEFT_X, false, "LEFT_X", "LX"),
@@ -43,15 +42,31 @@ public enum ControllerAxis {
         return trigger;
     }
 
+    /**
+     * What GLFW reports for this axis when nothing is touching it. Sticks rest at 0, but
+     * triggers rest at -1 and run to 1 -- so a trigger left at 0 reads as half pulled.
+     */
+    public float restingValue() {
+        return trigger ? -1.0F : 0.0F;
+    }
+
+    /**
+     * Maps a raw reading onto the scale the rest of the mod compares against thresholds with:
+     * triggers come back as 0 (released) to 1 (fully pulled), sticks are passed through.
+     */
+    public float normalizePull(float rawValue) {
+        if (!trigger) {
+            return rawValue;
+        }
+        float normalized = (rawValue + 1.0F) * 0.5F;
+        return Math.max(0.0F, Math.min(1.0F, normalized));
+    }
+
     public static ControllerAxis fromTokenOrNull(String token) {
         if (token == null || token.isBlank()) {
             return null;
         }
         return LOOKUP.get(normalize(token));
-    }
-
-    public static Optional<ControllerAxis> fromToken(String token) {
-        return Optional.ofNullable(fromTokenOrNull(token));
     }
 
     private static String normalize(String token) {

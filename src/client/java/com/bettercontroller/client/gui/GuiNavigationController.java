@@ -1,20 +1,20 @@
 package com.bettercontroller.client.gui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.PressableWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.ContainerInput;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -43,15 +43,15 @@ public final class GuiNavigationController {
     }
 
     public void onScreenTick(
-        MinecraftClient client,
+        Minecraft client,
         GuiInputFrame inputFrame,
         Consumer<Boolean> virtualKeyboardRequest,
         boolean debugLogging
     ) {
-        if (client == null || client.currentScreen == null || inputFrame == null) {
+        if (client == null || client.gui.screen() == null || inputFrame == null) {
             return;
         }
-        Screen screen = client.currentScreen;
+        Screen screen = client.gui.screen();
         boolean screenChanged = screen != lastScreen;
         lastScreen = screen;
 
@@ -59,14 +59,14 @@ public final class GuiNavigationController {
             cursorCapture.noteControllerInput();
         }
 
-        AlwaysSelectedEntryListWidget<?> listWidget = findListWidget(screen);
+        ObjectSelectionList<?> listWidget = findListWidget(screen);
         collectFocusElements(screen, focusElementsBuffer);
         if (screenChanged) {
             handleScreenChange(screen);
         }
         selectedIndex = WidgetNavigator.ensureValidSelection(screen, focusElementsBuffer, selectedIndex);
 
-        HandledScreen<?> handledScreen = screen instanceof HandledScreen<?> h ? h : null;
+        AbstractContainerScreen<?> handledScreen = screen instanceof AbstractContainerScreen<?> h ? h : null;
         collectHandledSlots(handledScreen, handledSlotsBuffer);
         if (!handledSlotsBuffer.isEmpty()) {
             initializeHandledSlotSelection(client, handledSlotsBuffer, screenChanged);
@@ -83,13 +83,26 @@ public final class GuiNavigationController {
     }
 
     public void reset() {
+        // Released before forgetScreen(), which would otherwise clear the flag release() checks.
+        cursorCapture.release(Minecraft.getInstance());
+        forgetScreen();
+        lastAnalogScrollMs = 0L;
+    }
+
+    /**
+     * Lets go of the screen that just closed - the screen itself, its widgets and its slots - so
+     * none of it stays reachable while the player is in the world. The cursor is only forgotten,
+     * not released: Minecraft has already locked it for gameplay, and showing it would break that.
+     */
+    public void forgetScreen() {
         lastScreen = null;
+        focusElementsBuffer.clear();
+        handledSlotsBuffer.clear();
         selectedIndex = -1;
         selectedHandledSlotId = -1;
         preferListFocus = false;
-        lastAnalogScrollMs = 0L;
         navigationMode = NavigationMode.WIDGETS;
-        cursorCapture.release(MinecraftClient.getInstance());
+        cursorCapture.forget();
         inventorySelectionState.clear();
     }
 
@@ -98,8 +111,8 @@ public final class GuiNavigationController {
      * Stick pushed up produces a negative value -> scrolls content up. The call rate is throttled
      * proportionally to the stick magnitude so light deflection scrolls slowly, full deflection fast.
      */
-    public void handleAnalogScroll(MinecraftClient client, float stickY) {
-        if (client == null || client.currentScreen == null) {
+    public void handleAnalogScroll(Minecraft client, float stickY) {
+        if (client == null || client.gui.screen() == null) {
             lastAnalogScrollMs = 0L;
             return;
         }
@@ -108,14 +121,14 @@ public final class GuiNavigationController {
             lastAnalogScrollMs = 0L;
             return;
         }
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         long interval = (long) (SCROLL_BASE_INTERVAL_MS / Math.max(0.25F, magnitude));
         if (now - lastAnalogScrollMs < interval) {
             return;
         }
         lastAnalogScrollMs = now;
 
-        Screen screen = client.currentScreen;
+        Screen screen = client.gui.screen();
         double mouseX = screen.width / 2.0D;
         double mouseY = screen.height / 2.0D;
         double verticalAmount = stickY < 0.0F ? 1.0D : -1.0D;
@@ -137,7 +150,7 @@ public final class GuiNavigationController {
     }
 
     private void updateListFocusPreference(
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         GuiInputFrame inputFrame,
         Screen screen,
         boolean screenChanged
@@ -157,9 +170,9 @@ public final class GuiNavigationController {
 
     private NavigationMode resolveNavigationMode(
         Screen screen,
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         List<GuiFocusElement> focusElements,
-        HandledScreen<?> handledScreen,
+        AbstractContainerScreen<?> handledScreen,
         List<Slot> handledSlots,
         GuiInputFrame inputFrame,
         boolean screenChanged
@@ -179,7 +192,7 @@ public final class GuiNavigationController {
     }
 
     private boolean handleTextInputMode(Screen screen, boolean hasHandledSlots, NavigationDirection direction) {
-        boolean focusedTextInput = screen.getFocused() instanceof TextFieldWidget;
+        boolean focusedTextInput = screen.getFocused() instanceof EditBox;
         if (focusedTextInput && direction != null) {
             screen.setFocused(null);
             if (navigationMode == NavigationMode.TEXT_INPUT) {
@@ -190,11 +203,11 @@ public final class GuiNavigationController {
         return focusedTextInput;
     }
 
-    private NavigationMode applyFocusOverrides(Screen screen, AlwaysSelectedEntryListWidget<?> listWidget, boolean hasFocusableWidgets) {
+    private NavigationMode applyFocusOverrides(Screen screen, ObjectSelectionList<?> listWidget, boolean hasFocusableWidgets) {
         if (screen.getFocused() == listWidget && listWidget != null) {
             return NavigationMode.LIST;
         }
-        if (screen.getFocused() instanceof ClickableWidget && hasFocusableWidgets) {
+        if (screen.getFocused() instanceof AbstractWidget && hasFocusableWidgets) {
             return NavigationMode.WIDGETS;
         }
         return navigationMode;
@@ -202,7 +215,7 @@ public final class GuiNavigationController {
 
     private NavigationMode finalizeMode(
         Screen screen,
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         List<GuiFocusElement> focusElements,
         List<Slot> handledSlots,
         GuiInputFrame inputFrame,
@@ -248,11 +261,11 @@ public final class GuiNavigationController {
 
     private static NavigationMode resolveInitialMode(
         Screen screen,
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         boolean hasFocusableWidgets,
         boolean hasHandledSlots
     ) {
-        if (screen != null && screen.getFocused() instanceof TextFieldWidget) {
+        if (screen != null && screen.getFocused() instanceof EditBox) {
             return NavigationMode.TEXT_INPUT;
         }
         if (screen != null && listWidget != null && screen.getFocused() == listWidget) {
@@ -266,11 +279,11 @@ public final class GuiNavigationController {
 
     private NavigationMode resolveFallbackMode(
         Screen screen,
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         List<GuiFocusElement> focusElements,
         boolean hasHandledSlots
     ) {
-        if (screen != null && screen.getFocused() instanceof TextFieldWidget) {
+        if (screen != null && screen.getFocused() instanceof EditBox) {
             return NavigationMode.TEXT_INPUT;
         }
         if (listWidget != null && (preferListFocus || screen.getFocused() == listWidget)) {
@@ -287,8 +300,8 @@ public final class GuiNavigationController {
         if (current == null) {
             return true;
         }
-        int nextSlotId = SlotNavigator.findDirectionalSlot(slots, current.id, direction.x(), direction.y());
-        return nextSlotId != current.id;
+        int nextSlotId = SlotNavigator.findDirectionalSlot(slots, current.index, direction.x(), direction.y());
+        return nextSlotId != current.index;
     }
 
     private boolean canMoveWidgetSelection(Screen screen, List<GuiFocusElement> focusElements, NavigationDirection direction) {
@@ -299,10 +312,10 @@ public final class GuiNavigationController {
             if (direction.vertical()) {
                 return focusElements.size() > 1;
             }
-            return focusElements.get(selectedIndex).widget() instanceof SliderWidget;
+            return focusElements.get(selectedIndex).widget() instanceof AbstractSliderButton;
         }
-        ClickableWidget selectedWidget = focusElements.get(selectedIndex).widget();
-        if (selectedWidget instanceof SliderWidget && direction.horizontal()) {
+        AbstractWidget selectedWidget = focusElements.get(selectedIndex).widget();
+        if (selectedWidget instanceof AbstractSliderButton && direction.horizontal()) {
             return true;
         }
         int nextIndex = WidgetNavigator.findDirectionalIndex(focusElements, selectedIndex, direction.x(), direction.y());
@@ -310,11 +323,11 @@ public final class GuiNavigationController {
     }
 
     private void dispatchNavigation(
-        MinecraftClient client,
+        Minecraft client,
         Screen screen,
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         List<GuiFocusElement> focusElements,
-        HandledScreen<?> handledScreen,
+        AbstractContainerScreen<?> handledScreen,
         List<Slot> handledSlots,
         GuiInputFrame inputFrame,
         boolean screenChanged,
@@ -335,21 +348,21 @@ public final class GuiNavigationController {
         }
     }
 
-    private void initializeHandledSlotSelection(MinecraftClient client, List<Slot> slots, boolean screenChanged) {
+    private void initializeHandledSlotSelection(Minecraft client, List<Slot> slots, boolean screenChanged) {
         if (slots.isEmpty()) return;
         if (screenChanged || SlotNavigator.findSlotById(slots, selectedHandledSlotId) == null) {
             Slot initial = SlotNavigator.resolveInitialSlot(client, slots);
             if (initial != null) {
-                selectedHandledSlotId = initial.id;
+                selectedHandledSlotId = initial.index;
             }
         }
         if (SlotNavigator.findSlotById(slots, selectedHandledSlotId) == null) {
-            selectedHandledSlotId = slots.get(0).id;
+            selectedHandledSlotId = slots.get(0).index;
         }
     }
 
     private void handleTextInputNavigation(Screen screen, GuiInputFrame inputFrame, Consumer<Boolean> virtualKeyboardRequest) {
-        if (inputFrame.confirm() && screen.getFocused() instanceof TextFieldWidget textFieldWidget) {
+        if (inputFrame.confirm() && screen.getFocused() instanceof EditBox textFieldWidget) {
             triggerConfirm(GuiFocusElement.fromWidget(textFieldWidget), virtualKeyboardRequest);
         }
         if (inputFrame.back()) triggerBack(screen);
@@ -361,7 +374,7 @@ public final class GuiNavigationController {
 
     private void handleWidgetOrListNavigation(
         Screen screen,
-        AlwaysSelectedEntryListWidget<?> listWidget,
+        ObjectSelectionList<?> listWidget,
         List<GuiFocusElement> focusElements,
         GuiInputFrame inputFrame,
         Consumer<Boolean> virtualKeyboardRequest
@@ -403,7 +416,7 @@ public final class GuiNavigationController {
         GuiFocusElement selected = focusElements.get(selectedIndex);
         NavigationDirection direction = resolveDirectionalInput(inputFrame);
         if (direction != null) {
-            if (selected.widget() instanceof SliderWidget sliderWidget && direction.horizontal()) {
+            if (selected.widget() instanceof AbstractSliderButton sliderWidget && direction.horizontal()) {
                 pressKey(sliderWidget, direction.x() < 0 ? GLFW.GLFW_KEY_LEFT : GLFW.GLFW_KEY_RIGHT);
             } else {
                 selectedIndex = WidgetNavigator.findDirectionalIndex(focusElements, selectedIndex, direction.x(), direction.y());
@@ -433,8 +446,8 @@ public final class GuiNavigationController {
         WidgetNavigator.applySelection(settingsScreen, focusElements, selectedIndex);
 
         GuiFocusElement selected = focusElements.get(selectedIndex);
-        ClickableWidget widget = selected.widget();
-        if (widget instanceof SliderWidget sliderWidget) {
+        AbstractWidget widget = selected.widget();
+        if (widget instanceof AbstractSliderButton sliderWidget) {
             if (inputFrame.left()) pressKey(sliderWidget, GLFW.GLFW_KEY_LEFT);
             if (inputFrame.right()) pressKey(sliderWidget, GLFW.GLFW_KEY_RIGHT);
         } else if (inputFrame.confirm()) {
@@ -444,8 +457,8 @@ public final class GuiNavigationController {
     }
 
     private void handleHandledScreenNavigation(
-        MinecraftClient client,
-        HandledScreen<?> handledScreen,
+        Minecraft client,
+        AbstractContainerScreen<?> handledScreen,
         List<Slot> slots,
         GuiInputFrame inputFrame,
         boolean screenChanged
@@ -458,7 +471,7 @@ public final class GuiNavigationController {
         Slot selectedSlot = SlotNavigator.findSlotById(slots, selectedHandledSlotId);
         if (selectedSlot == null) {
             selectedSlot = slots.get(0);
-            selectedHandledSlotId = selectedSlot.id;
+            selectedHandledSlotId = selectedSlot.index;
         }
         inventorySelectionState.setSelectedSlot(handledScreen, selectedSlot);
 
@@ -470,7 +483,7 @@ public final class GuiNavigationController {
         selectedSlot = SlotNavigator.findSlotById(slots, selectedHandledSlotId);
         if (selectedSlot == null) {
             selectedSlot = slots.get(0);
-            selectedHandledSlotId = selectedSlot.id;
+            selectedHandledSlotId = selectedSlot.index;
         }
         inventorySelectionState.setSelectedSlot(handledScreen, selectedSlot);
 
@@ -480,8 +493,8 @@ public final class GuiNavigationController {
         if (inputFrame.back()) triggerBack(handledScreen);
     }
 
-    private boolean handleCreativeTabInputs(HandledScreen<?> handledScreen, GuiInputFrame inputFrame) {
-        if (!(handledScreen instanceof CreativeInventoryScreen)) {
+    private boolean handleCreativeTabInputs(AbstractContainerScreen<?> handledScreen, GuiInputFrame inputFrame) {
+        if (!(handledScreen instanceof CreativeModeInventoryScreen)) {
             return false;
         }
         if (inputFrame.tabNext() || inputFrame.pageNext()) {
@@ -499,7 +512,7 @@ public final class GuiNavigationController {
         return false;
     }
 
-    private void handleSlotDirection(List<Slot> slots, GuiInputFrame inputFrame, HandledScreen<?> handledScreen) {
+    private void handleSlotDirection(List<Slot> slots, GuiInputFrame inputFrame, AbstractContainerScreen<?> handledScreen) {
         NavigationDirection direction = resolveDirectionalInput(inputFrame);
         if (direction == null) {
             return;
@@ -512,14 +525,14 @@ public final class GuiNavigationController {
         if (direction.vertical() && tryScrollHandledScreen(handledScreen, direction == NavigationDirection.UP ? 1.0D : -1.0D)) {
             return;
         }
-        if (direction.horizontal() && handledScreen instanceof CreativeInventoryScreen) {
+        if (direction.horizontal() && handledScreen instanceof CreativeModeInventoryScreen) {
             if (CreativeTabNavigator.cycle(handledScreen, direction == NavigationDirection.RIGHT ? 1 : -1)) {
                 selectedHandledSlotId = -1;
             }
         }
     }
 
-    private static boolean tryScrollHandledScreen(HandledScreen<?> screen, double verticalAmount) {
+    private static boolean tryScrollHandledScreen(AbstractContainerScreen<?> screen, double verticalAmount) {
         if (screen == null) {
             return false;
         }
@@ -528,7 +541,7 @@ public final class GuiNavigationController {
         return screen.mouseScrolled(mouseX, mouseY, 0.0D, verticalAmount);
     }
 
-    private static void handleListNavigation(Screen screen, AlwaysSelectedEntryListWidget<?> listWidget, GuiInputFrame inputFrame) {
+    private static void handleListNavigation(Screen screen, ObjectSelectionList<?> listWidget, GuiInputFrame inputFrame) {
         if (listWidget == null) {
             return;
         }
@@ -553,35 +566,35 @@ public final class GuiNavigationController {
 
     private static void collectFocusElements(Screen screen, List<GuiFocusElement> buffer) {
         buffer.clear();
-        for (Element child : screen.children()) {
-            if (child instanceof ClickableWidget w && w.active && w.visible) {
+        for (GuiEventListener child : screen.children()) {
+            if (child instanceof AbstractWidget w && w.active && w.visible) {
                 buffer.add(GuiFocusElement.fromWidget(w));
             }
         }
     }
 
-    private void collectHandledSlots(HandledScreen<?> screen, List<Slot> buffer) {
+    private void collectHandledSlots(AbstractContainerScreen<?> screen, List<Slot> buffer) {
         buffer.clear();
-        if (screen == null || screen.getScreenHandler() == null) {
+        if (screen == null || screen.getMenu() == null) {
             return;
         }
-        for (Slot slot : screen.getScreenHandler().slots) {
-            if (slot != null && slot.isEnabled() && slot.canBeHighlighted()) {
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot != null && slot.isActive() && slot.isHighlightable()) {
                 buffer.add(slot);
             }
         }
-        if (screen instanceof CreativeInventoryScreen) {
+        if (screen instanceof CreativeModeInventoryScreen) {
             filterVisibleSlots(buffer);
         }
         if (!buffer.isEmpty()) {
             return;
         }
-        for (Slot slot : screen.getScreenHandler().slots) {
-            if (slot != null && slot.isEnabled()) {
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot != null && slot.isActive()) {
                 buffer.add(slot);
             }
         }
-        if (screen instanceof CreativeInventoryScreen) {
+        if (screen instanceof CreativeModeInventoryScreen) {
             filterVisibleSlots(buffer);
         }
     }
@@ -603,12 +616,12 @@ public final class GuiNavigationController {
         slots.removeIf(slot -> slot == null || slot.x < 0 || slot.y < 0 || slot.x > 400 || slot.y > 400);
     }
 
-    private static AlwaysSelectedEntryListWidget<?> findListWidget(Screen screen) {
+    private static ObjectSelectionList<?> findListWidget(Screen screen) {
         if (screen == null) {
             return null;
         }
-        for (Element child : screen.children()) {
-            if (child instanceof AlwaysSelectedEntryListWidget<?> listWidget) {
+        for (GuiEventListener child : screen.children()) {
+            if (child instanceof ObjectSelectionList<?> listWidget) {
                 return listWidget;
             }
         }
@@ -624,49 +637,54 @@ public final class GuiNavigationController {
     }
 
     private static void triggerConfirm(GuiFocusElement selected, Consumer<Boolean> virtualKeyboardRequest) {
-        ClickableWidget widget = selected.widget();
-        if (widget instanceof PressableWidget pressableWidget) {
-            pressableWidget.onPress(new KeyInput(GLFW.GLFW_KEY_ENTER, 0, 0));
+        AbstractWidget widget = selected.widget();
+        // Sliders are driven with left/right. Confirming one would synthesise a click at its centre,
+        // and AbstractSliderButton.onClick sets the value from the click's X - so A would snap it to 50%.
+        if (widget instanceof AbstractSliderButton) {
             return;
         }
-        Click click = new Click(selected.centerX(), selected.centerY(), new MouseInput(GLFW.GLFW_MOUSE_BUTTON_LEFT, 0));
+        if (widget instanceof AbstractButton pressableWidget) {
+            pressableWidget.onPress(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
+            return;
+        }
+        MouseButtonEvent click = new MouseButtonEvent(selected.centerX(), selected.centerY(), new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_LEFT, 0));
         widget.mouseClicked(click, false);
         widget.mouseReleased(click);
-        if (widget instanceof TextFieldWidget && virtualKeyboardRequest != null) {
+        if (widget instanceof EditBox && virtualKeyboardRequest != null) {
             virtualKeyboardRequest.accept(true);
         }
     }
 
     private static void triggerBack(Screen screen) {
         if (screen.shouldCloseOnEsc()) {
-            screen.close();
+            screen.onClose();
         } else {
             pressKey(screen, GLFW.GLFW_KEY_ESCAPE);
         }
     }
 
-    private static void clickHandledSlot(MinecraftClient client, HandledScreen<?> screen, Slot slot) {
-        if (client == null || client.player == null || client.interactionManager == null || screen == null || slot == null) {
+    private static void clickHandledSlot(Minecraft client, AbstractContainerScreen<?> screen, Slot slot) {
+        if (client == null || client.player == null || client.gameMode == null || screen == null || slot == null) {
             return;
         }
-        client.interactionManager.clickSlot(
-            screen.getScreenHandler().syncId,
-            slot.id,
+        client.gameMode.handleContainerInput(
+            screen.getMenu().containerId,
+            slot.index,
             0,
-            SlotActionType.PICKUP,
+            ContainerInput.PICKUP,
             client.player
         );
     }
 
-    private static boolean pressKey(Element element, int keyCode) {
+    private static boolean pressKey(GuiEventListener element, int keyCode) {
         return pressKey(element, keyCode, 0);
     }
 
-    private static boolean pressKey(Element element, int keyCode, int modifiers) {
+    private static boolean pressKey(GuiEventListener element, int keyCode, int modifiers) {
         if (element == null) {
             return false;
         }
-        return element.keyPressed(new KeyInput(keyCode, 0, modifiers));
+        return element.keyPressed(new KeyEvent(keyCode, 0, modifiers));
     }
 
     private enum NavigationMode {
@@ -689,4 +707,13 @@ public final class GuiNavigationController {
         boolean horizontal() { return x != 0; }
         boolean vertical() { return y != 0; }
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

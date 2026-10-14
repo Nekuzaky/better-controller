@@ -1,8 +1,8 @@
 package com.bettercontroller.client.gui;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.Slot;
 
 import java.util.List;
 
@@ -23,24 +23,24 @@ public final class ControllerInventorySelectionState {
         lastSelectionChangeMs = 0L;
     }
 
-    public void setSelectedSlot(HandledScreen<?> screen, Slot slot) {
+    public void setSelectedSlot(AbstractContainerScreen<?> screen, Slot slot) {
         if (screen == null || slot == null) {
             return;
         }
-        if (trackedScreen != screen || selectedSlotId != slot.id) {
-            lastSelectionChangeMs = System.currentTimeMillis();
+        if (trackedScreen != screen || selectedSlotId != slot.index) {
+            lastSelectionChangeMs = monotonicNowMs();
         }
         trackedScreen = screen;
-        selectedSlotId = slot.id;
+        selectedSlotId = slot.index;
     }
 
-    public Slot resolveSelectedSlot(HandledScreen<?> screen) {
-        if (screen == null || trackedScreen != screen || selectedSlotId < 0 || screen.getScreenHandler() == null) {
+    public Slot resolveSelectedSlot(AbstractContainerScreen<?> screen) {
+        if (screen == null || trackedScreen != screen || selectedSlotId < 0 || screen.getMenu() == null) {
             return null;
         }
-        List<Slot> slots = screen.getScreenHandler().slots;
+        List<Slot> slots = screen.getMenu().slots;
         for (Slot slot : slots) {
-            if (slot != null && slot.id == selectedSlotId) {
+            if (slot != null && slot.index == selectedSlotId) {
                 return slot;
             }
         }
@@ -56,4 +56,13 @@ public final class ControllerInventorySelectionState {
         selectedSlotId = -1;
         lastSelectionChangeMs = 0L;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

@@ -11,9 +11,12 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.util.List;
 import java.util.Locale;
 
 public final class ControllerConfigManager {
@@ -23,6 +26,8 @@ public final class ControllerConfigManager {
         .create();
     private static final String DEFAULT_CONFIG_RESOURCE = "bettercontroller.default.json";
     private static final long CHECK_INTERVAL_MS = 500L;
+    /** GLFW_JOYSTICK_LAST; kept as a literal so config sanitising stays free of GLFW. */
+    private static final int MAX_JOYSTICK_INDEX = 15;
 
     private final Path configPath;
     private ControllerConfig config;
@@ -45,7 +50,7 @@ public final class ControllerConfigManager {
             return load();
         }
 
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         if (now - lastFileCheckMs < CHECK_INTERVAL_MS) {
             return config;
         }
@@ -79,8 +84,10 @@ public final class ControllerConfigManager {
 
         ControllerConfig loaded = readConfigFromDisk();
         int loadedSchemaVersion = loaded.schemaVersion;
+        loaded.migrateFrom(loadedSchemaVersion);
         loaded.ensureDefaults();
         sanitize(loaded);
+        warnAboutUnreadableTokens(loaded);
 
         int targetSchema = ControllerConfig.createDefault().schemaVersion;
         if (loadedSchemaVersion < targetSchema) {
@@ -152,11 +159,57 @@ public final class ControllerConfigManager {
         }
     }
 
+    private static void warnAboutUnreadableTokens(ControllerConfig loaded) {
+        List<String> problems = loaded.unreadableTokens();
+        if (problems.isEmpty()) {
+            return;
+        }
+        BetterControllerMod.LOGGER.warn(
+            "{} controller binding(s) name a button or axis this build does not know, and do nothing:",
+            problems.size()
+        );
+        for (String problem : problems) {
+            BetterControllerMod.LOGGER.warn("  {}", problem);
+        }
+    }
+
+    /**
+     * Writes through a sibling temp file and moves it into place.
+     *
+     * <p>Opening the real path for writing truncates it first, so a crash, a power cut or a full
+     * disk midway through leaves a half-written file. That file no longer parses, and the read
+     * path answers an unparseable config by falling back to defaults -- every deadzone, every
+     * sensitivity and every rebind gone, with one line in the log and nothing in game to say so.
+     * Writing somewhere else and moving means the config is either the old one or the new one.
+     */
     private void writeConfig(ControllerConfig toWrite) {
-        try (Writer writer = Files.newBufferedWriter(configPath, StandardCharsets.UTF_8)) {
-            GSON.toJson(toWrite, writer);
+        Path temporaryPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
+        try {
+            try (Writer writer = Files.newBufferedWriter(temporaryPath, StandardCharsets.UTF_8)) {
+                GSON.toJson(toWrite, writer);
+            }
+            moveIntoPlace(temporaryPath);
         } catch (IOException exception) {
             BetterControllerMod.LOGGER.error("Could not write controller config: {}", exception.getMessage());
+            try {
+                Files.deleteIfExists(temporaryPath);
+            } catch (IOException cleanupFailure) {
+                BetterControllerMod.LOGGER.warn(
+                    "Could not remove the partial controller config at {}: {}",
+                    temporaryPath,
+                    cleanupFailure.getMessage()
+                );
+            }
+        }
+    }
+
+    private void moveIntoPlace(Path temporaryPath) throws IOException {
+        try {
+            Files.move(temporaryPath, configPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            // Some filesystems (a few network and FUSE mounts) refuse an atomic move. A plain
+            // replace still beats truncating the original and writing into it.
+            Files.move(temporaryPath, configPath, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -182,7 +235,12 @@ public final class ControllerConfigManager {
         return null;
     }
 
-    private static void sanitize(ControllerConfig config) {
+    /**
+     * Package-private so the clamping rules can be exercised directly; the method is static and
+     * touches no instance state, so a test never has to build a manager (and so never needs a
+     * Fabric config directory to exist).
+     */
+    static void sanitize(ControllerConfig config) {
         config.movementDeadzone = clamp(config.movementDeadzone, 0.0F, 0.95F, 0.14F);
         config.lookDeadzone = clamp(config.lookDeadzone, 0.0F, 0.95F, 0.07F);
         config.lookAntiDeadzone = clamp(config.lookAntiDeadzone, 0.0F, 0.25F, 0.02F);
@@ -200,10 +258,19 @@ public final class ControllerConfigManager {
         if (config.menuAxisReleaseThreshold >= config.menuAxisPressThreshold) {
             config.menuAxisReleaseThreshold = Math.max(0.05F, config.menuAxisPressThreshold - 0.10F);
         }
-        config.menuInitialRepeatDelayMs = clampInt(config.menuInitialRepeatDelayMs, 60, 400, 140);
-        config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200, 55);
+        config.menuInitialRepeatDelayMs = clampInt(config.menuInitialRepeatDelayMs, 60, 400);
+        config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200);
         config.cameraSmoothingStrength = clamp(config.cameraSmoothingStrength, 0.0F, 1.0F, 0.35F);
         config.lookResponseCurve = normalizeResponseCurve(config.lookResponseCurve);
+        config.preferredControllerGuid = normalizeGuid(config.preferredControllerGuid);
+        config.preferredJoystickIndex = inRangeOrDefault(config.preferredJoystickIndex, -1, MAX_JOYSTICK_INDEX, -1);
+    }
+
+    private static String normalizeGuid(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim();
     }
 
     private static String normalizeResponseCurve(String value) {
@@ -223,10 +290,35 @@ public final class ControllerConfigManager {
         return Math.max(min, Math.min(max, value));
     }
 
-    private static int clampInt(int value, int min, int max, int fallback) {
+    /**
+     * Clamps to the nearest bound, like the float version. A number past the end of a range is
+     * someone asking for "as much as possible", and honouring that beats discarding it: setting
+     * menuRepeatIntervalMs to 500 used to snap back to the 170 default rather than the 200 the
+     * range allows, which reads as the setting being ignored.
+     */
+    private static int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * For values where every number means a different thing rather than more of one thing.
+     * preferredJoystickIndex is the case: clamping an out-of-range index would silently pin the
+     * mod to whichever pad happens to sit at the top of the range, so an index that cannot be
+     * honoured falls back to -1, "first gamepad found".
+     */
+    private static int inRangeOrDefault(int value, int min, int max, int fallback) {
         if (value < min || value > max) {
             return fallback;
         }
         return value;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

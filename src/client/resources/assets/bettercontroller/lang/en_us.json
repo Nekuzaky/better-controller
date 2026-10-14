@@ -13,7 +13,7 @@
   "bettercontroller.screen.virtual_keyboard.cancel": "Cancel",
   "bettercontroller.screen.virtual_keyboard.enter": "Enter",
   "bettercontroller.screen.virtual_keyboard.cursor_pos": "Cursor %s/%s",
-  "bettercontroller.screen.virtual_keyboard.help": "A: Confirm key (hold for repeat)  B: Cancel",
+  "bettercontroller.screen.virtual_keyboard.help": "A: Confirm key  B: Cancel",
   "bettercontroller.screen.virtual_keyboard.lowercase": "Lowercase",
   "bettercontroller.screen.virtual_keyboard.uppercase": "Uppercase",
   "bettercontroller.screen.virtual_keyboard.selected_key": "Selected Key: %s"

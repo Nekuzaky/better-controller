@@ -2,10 +2,10 @@ package com.bettercontroller.client.chat;
 
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.gui.ControllerVirtualKeyboardScreen;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
 
 /**
  * Opens BetterController's in-game virtual keyboard for the currently focused text field.
@@ -23,27 +23,27 @@ public final class VirtualKeyboardLauncher {
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return false;
         }
-        if (client.currentScreen == null || client.currentScreen instanceof ControllerVirtualKeyboardScreen) {
+        if (client.gui.screen() == null || client.gui.screen() instanceof ControllerVirtualKeyboardScreen) {
             return false;
         }
 
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         if ((now - lastLaunchTimestamp) < OPEN_COOLDOWN_MS) {
             return false;
         }
 
-        Screen screen = client.currentScreen;
-        TextFieldWidget targetField = resolveTargetTextField(screen);
+        Screen screen = client.gui.screen();
+        EditBox targetField = resolveTargetTextField(screen);
         if (targetField == null) {
             return false;
         }
 
         lastLaunchTimestamp = now;
-        client.setScreen(new ControllerVirtualKeyboardScreen(screen, targetField));
+        client.gui.setScreen(new ControllerVirtualKeyboardScreen(screen, targetField));
         pendingOpen = false;
         pendingSince = 0L;
         return true;
@@ -54,7 +54,7 @@ public final class VirtualKeyboardLauncher {
             return;
         }
         pendingOpen = true;
-        pendingSince = System.currentTimeMillis();
+        pendingSince = monotonicNowMs();
     }
 
     public void processPending(ControllerConfig config) {
@@ -64,21 +64,21 @@ public final class VirtualKeyboardLauncher {
         if (tryOpen(config)) {
             return;
         }
-        if ((System.currentTimeMillis() - pendingSince) > PENDING_TIMEOUT_MS) {
+        if ((monotonicNowMs() - pendingSince) > PENDING_TIMEOUT_MS) {
             pendingOpen = false;
             pendingSince = 0L;
         }
     }
 
-    private static TextFieldWidget resolveTargetTextField(Screen screen) {
+    private static EditBox resolveTargetTextField(Screen screen) {
         if (screen == null) {
             return null;
         }
-        if (screen.getFocused() instanceof TextFieldWidget focusedTextField) {
+        if (screen.getFocused() instanceof EditBox focusedTextField) {
             return focusedTextField;
         }
-        for (Element element : screen.children()) {
-            if (element instanceof TextFieldWidget textField) {
+        for (GuiEventListener element : screen.children()) {
+            if (element instanceof EditBox textField) {
                 return textField;
             }
         }
@@ -88,4 +88,13 @@ public final class VirtualKeyboardLauncher {
     private static boolean isEnabled(ControllerConfig config) {
         return config != null && config.virtualKeyboardEnabled;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

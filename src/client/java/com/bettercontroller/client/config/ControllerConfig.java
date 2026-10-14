@@ -1,5 +1,8 @@
 package com.bettercontroller.client.config;
 
+import com.bettercontroller.client.polling.ControllerAxis;
+import com.bettercontroller.client.polling.ControllerButton;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -8,8 +11,22 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class ControllerConfig {
-    public int schemaVersion = 9;
+    /** The schema that changed the menu repeat defaults; see {@link #migrateFrom}. */
+    static final int MENU_TIMING_SCHEMA = 11;
+    static final int PICK_BLOCK_SCHEMA = 12;
+    static final int LEGACY_MENU_INITIAL_REPEAT_DELAY_MS = 140;
+    static final int LEGACY_MENU_REPEAT_INTERVAL_MS = 55;
+    static final String LEGACY_PICK_BLOCK_BUTTON = "RB";
+
+    public int schemaVersion = PICK_BLOCK_SCHEMA;
     public boolean autoActivateOnController = true;
+
+    /**
+     * Pins the mod to one specific gamepad, so two game instances on the same machine can each
+     * drive their own controller. Empty / -1 means "first gamepad found", the historical behaviour.
+     */
+    public String preferredControllerGuid = "";
+    public int preferredJoystickIndex = -1;
 
     public float movementDeadzone = 0.14F;
     public float lookDeadzone = 0.07F;
@@ -25,8 +42,14 @@ public final class ControllerConfig {
     public float menuAxisThreshold = 0.35F;
     public float menuAxisPressThreshold = 0.40F;
     public float menuAxisReleaseThreshold = 0.20F;
-    public int menuInitialRepeatDelayMs = 140;
-    public int menuRepeatIntervalMs = 55;
+    /**
+     * Menu repeat timing. A 55ms interval is roughly 18 moves a second, which on menus of five or
+     * six entries overshoots before the eye has caught up - and the client tick is 50ms, so the
+     * selection was moving on very nearly every tick. Slowed to about six a second, which is what
+     * a console menu feels like.
+     */
+    public int menuInitialRepeatDelayMs = 300;
+    public int menuRepeatIntervalMs = 170;
 
     public boolean hudHintsEnabled = true;
     public boolean debugOverlayEnabled = true;
@@ -50,6 +73,9 @@ public final class ControllerConfig {
         }
         if (lookResponseCurve == null || lookResponseCurve.isBlank()) {
             lookResponseCurve = fallback.lookResponseCurve;
+        }
+        if (preferredControllerGuid == null) {
+            preferredControllerGuid = fallback.preferredControllerGuid;
         }
         if (lookSpeedMultiplier <= 0.0F) {
             lookSpeedMultiplier = fallback.lookSpeedMultiplier;
@@ -82,8 +108,98 @@ public final class ControllerConfig {
         mergeMissingBindings(bindings, fallback.bindings);
     }
 
+    /**
+     * Brings values written by an older schema up to date. Called on the raw values read from
+     * disk, before anything is clamped or backfilled.
+     *
+     * <p>Schema 11 slowed menu repeat from 140/55 ms to 300/170 ms. The config file is copied out
+     * on first run and then owns its values, so changing the default alone reached nobody who
+     * had already played. A file still carrying exactly the old pair never chose it - that was
+     * the default - and is moved to the new one. Anything else was set on purpose and is kept.
+     */
+    public void migrateFrom(int loadedSchemaVersion) {
+        if (loadedSchemaVersion < MENU_TIMING_SCHEMA
+            && menuInitialRepeatDelayMs == LEGACY_MENU_INITIAL_REPEAT_DELAY_MS
+            && menuRepeatIntervalMs == LEGACY_MENU_REPEAT_INTERVAL_MS) {
+            ControllerConfig fallback = createDefault();
+            menuInitialRepeatDelayMs = fallback.menuInitialRepeatDelayMs;
+            menuRepeatIntervalMs = fallback.menuRepeatIntervalMs;
+        }
+        if (loadedSchemaVersion < PICK_BLOCK_SCHEMA) {
+            movePickBlockOffTheHotbarBumper();
+        }
+    }
+
+    /**
+     * Schema 12 moved pick_block off RB. RB was bound to both pick_block and hotbar_next, and
+     * nothing arbitrates between two actions on one button, so a press did both: it picked the
+     * block and then advanced a slot, leaving the player holding a different slot than the one
+     * the pick had just filled. A file still carrying exactly the old single binding never chose
+     * it - that was the default - and is moved. Anything else was set on purpose and is kept.
+     */
+    private void movePickBlockOffTheHotbarBumper() {
+        if (bindings == null) {
+            return;
+        }
+        List<String> pickBlock = bindings.get("pick_block");
+        if (pickBlock == null
+            || pickBlock.size() != 1
+            || !LEGACY_PICK_BLOCK_BUTTON.equalsIgnoreCase(pickBlock.get(0))) {
+            return;
+        }
+        bindings.put("pick_block", new ArrayList<>(createDefault().bindings.get("pick_block")));
+    }
+
     public ResolvedLayout resolveLayout() {
         return new ResolvedLayout(axes, bindings);
+    }
+
+    /**
+     * Every configured token this build cannot read, as "where: token".
+     *
+     * <p>Numbers in this file are clamped, range-checked and migrated, but a button or axis name
+     * got none of that: an unrecognized token resolves to null and the binding is skipped in
+     * silence. The README sends people here to edit anything the sliders do not cover, so a
+     * "RIGHT_BUMBER" buys them a dead button and no way to find out why. The caller logs these.
+     */
+    public List<String> unreadableTokens() {
+        List<String> problems = new ArrayList<>();
+
+        if (axes != null) {
+            for (String axisKey : AxisBindings.KEYS) {
+                String token = axes.axisToken(axisKey);
+                if (token != null && !token.isBlank() && readableAxis(token) == null) {
+                    problems.add("axes." + axisKey + ": " + token);
+                }
+            }
+        }
+
+        if (bindings != null) {
+            for (Map.Entry<String, List<String>> binding : bindings.entrySet()) {
+                List<String> tokens = binding.getValue();
+                if (tokens == null) {
+                    continue;
+                }
+                for (String token : tokens) {
+                    if (token == null || token.isBlank() || readable(token)) {
+                        continue;
+                    }
+                    problems.add(binding.getKey() + ": " + token);
+                }
+            }
+        }
+
+        return problems;
+    }
+
+    private static boolean readable(String token) {
+        String stripped = token.startsWith("-") ? token.substring(1) : token;
+        return ControllerButton.fromTokenOrNull(stripped) != null || readableAxis(stripped) != null;
+    }
+
+    private static ControllerAxis readableAxis(String token) {
+        String stripped = token.startsWith("-") ? token.substring(1) : token;
+        return ControllerAxis.fromTokenOrNull(stripped);
     }
 
     public static ControllerConfig createDefault() {
@@ -113,7 +229,7 @@ public final class ControllerConfig {
             entry("toggle_perspective", "DPAD_DOWN"),
             entry("pause", "START"),
             entry("player_list", "BACK"),
-            entry("pick_block", "RB"),
+            entry("pick_block", "DPAD_LEFT"),
             entry("hotbar_next", "RB"),
             entry("hotbar_previous", "LB"),
             entry("hotbar_1"),
@@ -203,6 +319,8 @@ public final class ControllerConfig {
     }
 
     public static final class AxisBindings {
+        static final String[] KEYS = {"move_x", "move_y", "look_x", "look_y"};
+
         public String move_x = "LEFT_X";
         public String move_y = "LEFT_Y";
         public String look_x = "RIGHT_X";

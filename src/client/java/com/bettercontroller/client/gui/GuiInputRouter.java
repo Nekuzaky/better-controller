@@ -11,6 +11,14 @@ import java.util.EnumMap;
 import java.util.List;
 
 public final class GuiInputRouter {
+    /** Holding a direction this long speeds the repeat up a little, for long lists. */
+    private static final long ACCELERATE_AFTER_MS = 900L;
+    /**
+     * The sped-up repeat never goes below two client ticks. Polling is tick-paced, so anything
+     * shorter moves the selection every tick and the stick reads as a scroll wheel, not steps.
+     */
+    private static final long MIN_ACCELERATED_INTERVAL_MS = 100L;
+
     private final EnumMap<GameplayAction, Boolean> previousStates = new EnumMap<>(GameplayAction.class);
     private final EnumMap<GameplayAction, Long> holdStartMs = new EnumMap<>(GameplayAction.class);
     private final EnumMap<GameplayAction, Long> lastRepeatMs = new EnumMap<>(GameplayAction.class);
@@ -23,8 +31,8 @@ public final class GuiInputRouter {
         InputTranslator translator,
         boolean allowConfirmRepeat
     ) {
-        long initialDelayMs = clampLong(config.menuInitialRepeatDelayMs, 60L, 400L, 140L);
-        long repeatIntervalMs = clampLong(config.menuRepeatIntervalMs, 20L, 200L, 55L);
+        long initialDelayMs = clampLong(config.menuInitialRepeatDelayMs, 60L, 400L, 300L);
+        long repeatIntervalMs = clampLong(config.menuRepeatIntervalMs, 20L, 200L, 170L);
         if (allowConfirmRepeat) {
             initialDelayMs = Math.min(initialDelayMs, 150L);
             repeatIntervalMs = Math.min(repeatIntervalMs, 40L);
@@ -41,16 +49,17 @@ public final class GuiInputRouter {
         boolean tabNextPressed = actionPressedWithFallback(snapshot, config, layout, translator, GameplayAction.MENU_TAB_NEXT);
         boolean tabPrevPressed = actionPressedWithFallback(snapshot, config, layout, translator, GameplayAction.MENU_TAB_PREV);
 
-        boolean upPulse = pulse(GameplayAction.MENU_UP, upPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean downPulse = pulse(GameplayAction.MENU_DOWN, downPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean leftPulse = pulse(GameplayAction.MENU_LEFT, leftPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean rightPulse = pulse(GameplayAction.MENU_RIGHT, rightPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean confirmPulse = pulse(GameplayAction.MENU_CONFIRM, confirmPressed, allowConfirmRepeat, initialDelayMs, repeatIntervalMs);
-        boolean backPulse = pulse(GameplayAction.MENU_BACK, backPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean pageNextPulse = pulse(GameplayAction.MENU_PAGE_NEXT, pageNextPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean pagePrevPulse = pulse(GameplayAction.MENU_PAGE_PREV, pagePrevPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean tabNextPulse = pulse(GameplayAction.MENU_TAB_NEXT, tabNextPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean tabPrevPulse = pulse(GameplayAction.MENU_TAB_PREV, tabPrevPressed, false, initialDelayMs, repeatIntervalMs);
+        long now = monotonicNowMs();
+        boolean upPulse = pulse(GameplayAction.MENU_UP, upPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean downPulse = pulse(GameplayAction.MENU_DOWN, downPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean leftPulse = pulse(GameplayAction.MENU_LEFT, leftPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean rightPulse = pulse(GameplayAction.MENU_RIGHT, rightPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean confirmPulse = pulse(GameplayAction.MENU_CONFIRM, confirmPressed, allowConfirmRepeat, initialDelayMs, repeatIntervalMs, now);
+        boolean backPulse = pulse(GameplayAction.MENU_BACK, backPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean pageNextPulse = pulse(GameplayAction.MENU_PAGE_NEXT, pageNextPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean pagePrevPulse = pulse(GameplayAction.MENU_PAGE_PREV, pagePrevPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean tabNextPulse = pulse(GameplayAction.MENU_TAB_NEXT, tabNextPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean tabPrevPulse = pulse(GameplayAction.MENU_TAB_PREV, tabPrevPressed, false, initialDelayMs, repeatIntervalMs, now);
 
         return new GuiInputFrame(
             upPulse,
@@ -73,14 +82,18 @@ public final class GuiInputRouter {
         axisLatchStates.clear();
     }
 
-    private boolean pulse(
+    /**
+     * Package-private and taking its own clock reading so the repeat timing can be driven
+     * directly from a test, which is the only way to exercise a hold without sleeping.
+     */
+    boolean pulse(
         GameplayAction action,
         boolean pressed,
         boolean repeatable,
         long initialDelayMs,
-        long repeatIntervalMs
+        long repeatIntervalMs,
+        long now
     ) {
-        long now = System.currentTimeMillis();
         boolean previous = Boolean.TRUE.equals(previousStates.get(action));
 
         if (!pressed) {
@@ -104,13 +117,23 @@ public final class GuiInputRouter {
 
         long heldSince = holdStartMs.getOrDefault(action, now);
         long lastRepeat = lastRepeatMs.getOrDefault(action, now);
-        long acceleratedInterval = Math.max(16L, repeatIntervalMs - 12L);
-        long effectiveInterval = (now - heldSince) >= 900L ? acceleratedInterval : repeatIntervalMs;
+        long effectiveInterval = (now - heldSince) >= ACCELERATE_AFTER_MS
+            ? acceleratedInterval(repeatIntervalMs)
+            : repeatIntervalMs;
         if ((now - heldSince) >= initialDelayMs && (now - lastRepeat) >= effectiveInterval) {
             lastRepeatMs.put(action, now);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Interval once a hold has passed {@link #ACCELERATE_AFTER_MS}. Floored at two ticks, except
+     * that an interval already set below the floor is kept as it is rather than slowed down.
+     */
+    static long acceleratedInterval(long repeatIntervalMs) {
+        long floor = Math.min(repeatIntervalMs, MIN_ACCELERATED_INTERVAL_MS);
+        return Math.max(floor, repeatIntervalMs - 12L);
     }
 
     private static long clampLong(long value, long min, long max, long fallback) {
@@ -229,7 +252,7 @@ public final class GuiInputRouter {
                 value = -value;
             }
             if (axis.isTrigger()) {
-                value = normalizeTrigger(value);
+                value = axis.normalizePull(value);
             }
             axisMagnitude = Math.max(axisMagnitude, Math.max(0.0F, value));
         }
@@ -289,7 +312,53 @@ public final class GuiInputRouter {
         if (translator.isActionPressed(snapshot, config, layout, action)) {
             return true;
         }
+        if (hasRecognizedBinding(layout, action)) {
+            return false;
+        }
         return defaultMenuFallback(snapshot, config, action);
+    }
+
+    /**
+     * Elapsed-time readings come off nanoTime, not currentTimeMillis: the wall clock is not
+     * monotonic, and an NTP correction stepping it forwards or backwards mid-game would stall
+     * the menu repeat or make it burst. Milliseconds stay the unit so the configured delays
+     * need no conversion.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
+    /**
+     * Whether the layout binds this action to anything we can actually read.
+     *
+     * <p>The built-in menu defaults are a safety net for an action nobody bound, not a second
+     * set of controls layered under the user's. Without this gate the fallback fires whenever
+     * the configured binding simply isn't pressed, so rebinding an action leaves the original
+     * button working and clearing a binding list does nothing at all. The directional path has
+     * always gated its own fallback this way -- see the hasRecognizedBinding() check in
+     * directionalPressedWithHysteresis.
+     */
+    static boolean hasRecognizedBinding(
+        ControllerConfig.ResolvedLayout layout,
+        GameplayAction action
+    ) {
+        if (layout == null || action == null) {
+            return false;
+        }
+
+        List<String> bindings = layout.actionBindings(action.configKey());
+        for (int i = 0; i < bindings.size(); i++) {
+            String binding = bindings.get(i);
+            if (binding == null || binding.isBlank()) {
+                continue;
+            }
+            String normalized = binding.startsWith("-") ? binding.substring(1) : binding;
+            if (ControllerButton.fromTokenOrNull(normalized) != null
+                || ControllerAxis.fromTokenOrNull(normalized) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean defaultMenuFallback(
@@ -305,8 +374,8 @@ public final class GuiInputRouter {
         float triggerThreshold = clampFloat(config.triggerThreshold, 0.01F, 1.0F, 0.45F);
         float leftX = snapshot.axis(ControllerAxis.LEFT_X);
         float leftY = snapshot.axis(ControllerAxis.LEFT_Y);
-        float leftTrigger = normalizeTrigger(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
-        float rightTrigger = normalizeTrigger(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
+        float leftTrigger = ControllerAxis.LEFT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
+        float rightTrigger = ControllerAxis.RIGHT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
 
         return switch (action) {
             case MENU_UP -> snapshot.isPressed(ControllerButton.DPAD_UP) || leftY <= -axisThreshold;
@@ -323,10 +392,6 @@ public final class GuiInputRouter {
         };
     }
 
-    private static float normalizeTrigger(float value) {
-        float normalized = (value + 1.0F) * 0.5F;
-        return Math.max(0.0F, Math.min(1.0F, normalized));
-    }
 
     private static float clampFloat(float value, float min, float max, float fallback) {
         if (!Float.isFinite(value) || value < min || value > max) {

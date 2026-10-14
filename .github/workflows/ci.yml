@@ -1,10 +1,13 @@
 name: CI
 
+# One branch per Minecraft version: main tracks the latest release, mc/<version>
+# keeps every older line buildable. Each branch carries its own copy of this file
+# with the JDK its toolchain needs.
 on:
   push:
-    branches: [main, develop, 'fabric-*', 'feature/**', 'fix/**']
+    branches: [main, 'mc/**']
   pull_request:
-    branches: [main, develop, 'fabric-*']
+    branches: [main, 'mc/**']
   workflow_dispatch:
 
 permissions:
@@ -15,31 +18,33 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Loom 1.18 needs Gradle to run on Java 25. The mod itself is still compiled
+  # with --release 21, so players keep the Java Minecraft ships with.
+  BUILD_JDK: '25'
+
 jobs:
   build-and-test:
-    name: Build & Test (Java 21)
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up JDK ${{ env.BUILD_JDK }}
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.BUILD_JDK }}
           cache: gradle
-
-      - name: Grant execute permission
-        run: chmod +x gradlew
 
       - name: Build
         run: ./gradlew build --stacktrace
 
       - name: Publish test results
         if: always()
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         with:
           name: JUnit Tests
           path: build/test-results/**/*.xml
@@ -48,17 +53,21 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: build/reports/jacoco/test/html/
-          if-no-files-found: ignore
+          # The report is always produced (test is finalizedBy jacocoTestReport), so a missing
+          # one means report generation broke -- which should be loud, not a silent no-op.
+          if-no-files-found: error
 
       - name: Upload mod JAR
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bettercontroller-snapshot
-          path: build/libs/bettercontroller-*.jar
+          path: |
+            build/libs/bettercontroller-*.jar
+            !build/libs/*-sources.jar
           if-no-files-found: error
           retention-days: 14

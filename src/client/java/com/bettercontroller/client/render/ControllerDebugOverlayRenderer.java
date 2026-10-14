@@ -4,10 +4,11 @@ import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.input.ControllerRuntime;
 import com.bettercontroller.client.polling.ControllerAxis;
 import com.bettercontroller.client.polling.ControllerButton;
+import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.GameplayInputFrame;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.Locale;
 
@@ -22,7 +23,7 @@ public final class ControllerDebugOverlayRenderer {
         return visible;
     }
 
-    public void render(MinecraftClient client, DrawContext context, ControllerRuntime runtime) {
+    public void render(Minecraft client, GuiGraphicsExtractor context, ControllerRuntime runtime) {
         if (!visible || client == null || context == null || runtime == null) {
             return;
         }
@@ -42,12 +43,21 @@ public final class ControllerDebugOverlayRenderer {
         int y = 8;
         int lineHeight = 10;
 
+        // A player whose pad has no GLFW mapping sees "Connected: false" and nothing else, with no
+        // way to find the GUID a mapping line needs. Surface it here, where they will look.
+        String unmapped = runtime.unmappedJoystick();
+        if (!snapshot.isConnected() && unmapped != null) {
+            renderUnmappedNotice(client, context, unmapped);
+            return;
+        }
+
         String[] lines = new String[] {
             "BetterController Debug (F8)",
             "Connected: " + snapshot.isConnected(),
             "Type: " + runtime.activeControllerType(),
             "Glyph Set: " + runtime.glyphs().activeGlyphSetName(),
             "Controller: " + snapshot.joystickName(),
+            "Slot: " + snapshot.joystickId() + "   GUID: " + snapshot.joystickGuid(),
             formatAxes("Raw", snapshot),
             formatTriggers(snapshot),
             String.format(Locale.ROOT, "Processed move(%.3f, %.3f) look(%.3f, %.3f)",
@@ -57,12 +67,35 @@ public final class ControllerDebugOverlayRenderer {
 
         int maxWidth = 0;
         for (String line : lines) {
-            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(line));
+            maxWidth = Math.max(maxWidth, client.font.width(line));
         }
 
         context.fill(x - 4, y - 4, x + maxWidth + 6, y + (lines.length * lineHeight) + 2, 0x9A000000);
         for (int i = 0; i < lines.length; i++) {
-            context.drawTextWithShadow(client.textRenderer, lines[i], x, y + (i * lineHeight), 0xFFFFFFFF);
+            context.text(client.font, lines[i], x, y + (i * lineHeight), 0xFFFFFFFF);
+        }
+    }
+
+    private static void renderUnmappedNotice(Minecraft client, GuiGraphicsExtractor context, String unmapped) {
+        String[] lines = new String[] {
+            "BetterController Debug (F8)",
+            "No usable gamepad. This device has no GLFW mapping:",
+            "  " + unmapped,
+            "Add a line for it to config/" + ControllerMappings.MAPPINGS_FILE_NAME,
+            ControllerMappings.DATABASE_URL
+        };
+
+        int x = 8;
+        int y = 8;
+        int lineHeight = 10;
+        int maxWidth = 0;
+        for (String line : lines) {
+            maxWidth = Math.max(maxWidth, client.font.width(line));
+        }
+
+        context.fill(x - 4, y - 4, x + maxWidth + 6, y + (lines.length * lineHeight) + 2, 0x9A000000);
+        for (int i = 0; i < lines.length; i++) {
+            context.text(client.font, lines[i], x, y + (i * lineHeight), 0xFFFFC66B);
         }
     }
 
@@ -94,13 +127,9 @@ public final class ControllerDebugOverlayRenderer {
     }
 
     private static String formatTriggers(ControllerSnapshot snapshot) {
-        float left = normalizeTrigger(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
-        float right = normalizeTrigger(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
+        float left = ControllerAxis.LEFT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
+        float right = ControllerAxis.RIGHT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
         return String.format(Locale.ROOT, "Triggers LT %.3f RT %.3f", left, right);
     }
 
-    private static float normalizeTrigger(float value) {
-        float normalized = (value + 1.0F) * 0.5F;
-        return Math.max(0.0F, Math.min(1.0F, normalized));
-    }
 }

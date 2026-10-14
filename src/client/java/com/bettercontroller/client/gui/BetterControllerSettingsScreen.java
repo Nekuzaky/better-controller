@@ -2,12 +2,12 @@ package com.bettercontroller.client.gui;
 
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.input.ControllerRuntime;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
 
 import java.util.Locale;
@@ -30,7 +30,7 @@ public final class BetterControllerSettingsScreen extends Screen {
     private float triggerThreshold;
 
     public BetterControllerSettingsScreen(Screen parent, ControllerRuntime runtime) {
-        super(Text.translatable("bettercontroller.screen.settings.title"));
+        super(Component.translatable("bettercontroller.screen.settings.title"));
         this.parent = parent;
         this.runtime = runtime;
         loadFromConfig();
@@ -54,59 +54,59 @@ public final class BetterControllerSettingsScreen extends Screen {
         int sliderX = centerX - (SLIDER_WIDTH / 2);
         int y = FIRST_SLIDER_Y;
 
-        addDrawableChild(createSlider(
+        addRenderableWidget(createSlider(
             sliderX, y, "Movement Deadzone", 0.0F, 0.40F, "%.2f",
             () -> movementDeadzone, value -> movementDeadzone = value
         ));
         y += SLIDER_GAP;
 
-        addDrawableChild(createSlider(
+        addRenderableWidget(createSlider(
             sliderX, y, "Look Sensitivity X", 0.5F, 30.0F, "%.1f",
             () -> lookSensitivityX, value -> lookSensitivityX = value
         ));
         y += SLIDER_GAP;
 
-        addDrawableChild(createSlider(
+        addRenderableWidget(createSlider(
             sliderX, y, "Look Sensitivity Y", 0.5F, 30.0F, "%.1f",
             () -> lookSensitivityY, value -> lookSensitivityY = value
         ));
         y += SLIDER_GAP;
 
-        addDrawableChild(createSlider(
+        addRenderableWidget(createSlider(
             sliderX, y, "Look Speed Multiplier", 0.5F, 4.0F, "%.2f",
             () -> lookSpeedMultiplier, value -> lookSpeedMultiplier = value
         ));
         y += SLIDER_GAP;
 
-        addDrawableChild(createSlider(
+        addRenderableWidget(createSlider(
             sliderX, y, "Trigger Threshold", 0.05F, 1.0F, "%.2f",
             () -> triggerThreshold, value -> triggerThreshold = value
         ));
         y += SLIDER_GAP + 6;
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.literal("Reset to defaults"),
+        addRenderableWidget(Button.builder(
+            Component.literal("Reset to defaults"),
             b -> resetToDefaults()
-        ).dimensions(sliderX, y, (SLIDER_WIDTH / 2) - 4, CONTROL_HEIGHT).build());
+        ).bounds(sliderX, y, (SLIDER_WIDTH / 2) - 4, CONTROL_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.literal("Open config file"),
+        addRenderableWidget(Button.builder(
+            Component.literal("Open config file"),
             b -> openConfigFile()
-        ).dimensions(sliderX + (SLIDER_WIDTH / 2) + 4, y, (SLIDER_WIDTH / 2) - 4, CONTROL_HEIGHT).build());
+        ).bounds(sliderX + (SLIDER_WIDTH / 2) + 4, y, (SLIDER_WIDTH / 2) - 4, CONTROL_HEIGHT).build());
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.literal("Done"),
+        addRenderableWidget(Button.builder(
+            Component.literal("Done"),
             b -> saveAndClose()
-        ).dimensions(sliderX, y + SLIDER_GAP, SLIDER_WIDTH, CONTROL_HEIGHT).build());
+        ).bounds(sliderX, y + SLIDER_GAP, SLIDER_WIDTH, CONTROL_HEIGHT).build());
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 18, 0xFFFFFFFF);
-        context.drawCenteredTextWithShadow(
-            this.textRenderer,
-            Text.literal("Other options can be edited in bettercontroller.json"),
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
+        context.centeredText(this.font, this.title, this.width / 2, 18, 0xFFFFFFFF);
+        context.centeredText(
+            this.font,
+            Component.literal("Other options can be edited in bettercontroller.json"),
             this.width / 2,
             36,
             0x8FA0B5C5
@@ -114,14 +114,14 @@ public final class BetterControllerSettingsScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         saveAndClose();
     }
 
     private void saveAndClose() {
         runtime.updateConfig(this::applyToConfig);
-        if (this.client != null) {
-            this.client.setScreen(parent);
+        if (this.minecraft != null) {
+            this.minecraft.gui.setScreen(parent);
         }
     }
 
@@ -136,14 +136,14 @@ public final class BetterControllerSettingsScreen extends Screen {
     private void resetToDefaults() {
         runtime.resetToDefaults();
         loadFromConfig();
-        this.clearAndInit();
+        this.rebuildWidgets();
     }
 
     private void openConfigFile() {
-        Util.getOperatingSystem().open(runtime.configPath().toFile());
+        Util.getPlatform().openPath(runtime.configPath());
     }
 
-    private static SliderWidget createSlider(
+    private static AbstractSliderButton createSlider(
         int x,
         int y,
         String label,
@@ -164,7 +164,7 @@ public final class BetterControllerSettingsScreen extends Screen {
         return Math.max(0.0D, Math.min(1.0D, (value - min) / (double) (max - min)));
     }
 
-    private static final class ConfigSlider extends SliderWidget {
+    private static final class ConfigSlider extends AbstractSliderButton {
         private final String label;
         private final float min;
         private final float max;
@@ -172,7 +172,7 @@ public final class BetterControllerSettingsScreen extends Screen {
         private final Consumer<Float> setter;
 
         ConfigSlider(int x, int y, double initialValue, String label, float min, float max, String format, Consumer<Float> setter) {
-            super(x, y, SLIDER_WIDTH, CONTROL_HEIGHT, Text.empty(), initialValue);
+            super(x, y, SLIDER_WIDTH, CONTROL_HEIGHT, Component.empty(), initialValue);
             this.label = label;
             this.min = min;
             this.max = max;
@@ -184,7 +184,7 @@ public final class BetterControllerSettingsScreen extends Screen {
         @Override
         protected void updateMessage() {
             float value = currentValue();
-            setMessage(Text.literal(label + ": " + String.format(Locale.ROOT, format, value)));
+            setMessage(Component.literal(label + ": " + String.format(Locale.ROOT, format, value)));
         }
 
         @Override

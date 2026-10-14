@@ -4,13 +4,13 @@ import com.bettercontroller.BetterControllerMod;
 import com.bettercontroller.client.mixin.InputAccessor;
 import com.bettercontroller.client.mixin.KeyBindingAccessor;
 import com.bettercontroller.client.translation.GameplayInputFrame;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.phys.Vec2;
 
 public final class MinecraftInputApplier {
 
@@ -21,70 +21,71 @@ public final class MinecraftInputApplier {
     private boolean previousAttackHeld;
     private boolean previousUseHeld;
 
-    public void applyGameplayFrame(MinecraftClient client, GameplayInputFrame frame, boolean debugLogging) {
+    public void applyGameplayFrame(Minecraft client, GameplayInputFrame frame, boolean debugLogging) {
         if (client == null || client.options == null || client.player == null || frame == null) {
             return;
         }
 
-        setHold(client.options.forwardKey, frame.moveForward());
-        setHold(client.options.backKey, frame.moveBackward());
-        setHold(client.options.leftKey, frame.moveLeft());
-        setHold(client.options.rightKey, frame.moveRight());
-        applyJumpKey(client.options.jumpKey, frame.jumpHeld());
-        setHold(client.options.sprintKey, frame.sprintHeld());
-        setHold(client.options.sneakKey, frame.sneakHeld());
-        applyActionKey(client.options.attackKey, frame.attackHeld(), true);
-        applyActionKey(client.options.useKey, frame.useHeld(), false);
-        setHold(client.options.playerListKey, frame.playerListHeld());
+        setHold(client.options.keyUp, frame.moveForward());
+        setHold(client.options.keyDown, frame.moveBackward());
+        setHold(client.options.keyLeft, frame.moveLeft());
+        setHold(client.options.keyRight, frame.moveRight());
+        applyJumpKey(client.options.keyJump, frame.jumpHeld());
+        setHold(client.options.keySprint, frame.sprintHeld());
+        setHold(client.options.keyShift, frame.sneakHeld());
+        applyActionKey(client.options.keyAttack, frame.attackHeld(), true);
+        applyActionKey(client.options.keyUse, frame.useHeld(), false);
+        setHold(client.options.keyPlayerList, frame.playerListHeld());
 
-        applyAnalogMovementVector(client, frame);
         applyTaps(client, frame);
         applyHotbar(client, frame);
     }
 
-    public void applyLookDelta(MinecraftClient client, double deltaX, double deltaY) {
+    public void applyLookDelta(Minecraft client, double deltaX, double deltaY) {
         if (client == null || client.player == null) {
             return;
         }
         if (deltaX == 0.0D && deltaY == 0.0D) {
             return;
         }
-        client.player.changeLookDirection(deltaX, deltaY);
+        client.player.turn(deltaX, deltaY);
     }
 
-    public void releaseGameplayHolds(MinecraftClient client) {
+    public void releaseGameplayHolds(Minecraft client) {
         if (client == null || client.options == null) {
             return;
         }
 
-        clearAnalogMovement(client);
-        setHold(client.options.forwardKey, false);
-        setHold(client.options.backKey, false);
-        setHold(client.options.leftKey, false);
-        setHold(client.options.rightKey, false);
-        setHold(client.options.jumpKey, false);
-        setHold(client.options.sprintKey, false);
-        setHold(client.options.sneakKey, false);
-        setHold(client.options.attackKey, false);
-        setHold(client.options.useKey, false);
-        setHold(client.options.playerListKey, false);
+        setHold(client.options.keyUp, false);
+        setHold(client.options.keyDown, false);
+        setHold(client.options.keyLeft, false);
+        setHold(client.options.keyRight, false);
+        setHold(client.options.keyJump, false);
+        setHold(client.options.keySprint, false);
+        setHold(client.options.keyShift, false);
+        setHold(client.options.keyAttack, false);
+        setHold(client.options.keyUse, false);
+        setHold(client.options.keyPlayerList, false);
 
+        // Released is also what the next gameplay frame reports: InputTranslator keeps a jump,
+        // attack or use that is still down from a screen off until it is let go, so these flags
+        // never see that stale hold as a rising edge.
         previousJumpHeld = false;
         previousAttackHeld = false;
         previousUseHeld = false;
     }
 
-    private void applyTaps(MinecraftClient client, GameplayInputFrame frame) {
-        if (frame.inventoryTap()) tap(client.options.inventoryKey);
-        if (frame.swapHandsTap()) tap(client.options.swapHandsKey);
-        if (frame.dropTap()) tap(client.options.dropKey);
-        if (frame.chatTap()) tap(client.options.chatKey);
-        if (frame.perspectiveTap()) tap(client.options.togglePerspectiveKey);
-        if (frame.pickBlockTap()) tap(client.options.pickItemKey);
+    private void applyTaps(Minecraft client, GameplayInputFrame frame) {
+        if (frame.inventoryTap()) tap(client.options.keyInventory);
+        if (frame.swapHandsTap()) tap(client.options.keySwapOffhand);
+        if (frame.dropTap()) tap(client.options.keyDrop);
+        if (frame.chatTap()) tap(client.options.keyChat);
+        if (frame.perspectiveTap()) tap(client.options.keyTogglePerspective);
+        if (frame.pickBlockTap()) tap(client.options.keyPickItem);
         if (frame.pauseTap()) openPauseMenu(client);
     }
 
-    private static void applyHotbar(MinecraftClient client, GameplayInputFrame frame) {
+    private static void applyHotbar(Minecraft client, GameplayInputFrame frame) {
         if (frame.hotbarStep() != 0) {
             cycleSlot(client, frame.hotbarStep());
         }
@@ -94,26 +95,41 @@ public final class MinecraftInputApplier {
     }
 
     /**
-     * Writes the analog movement vector. Discrete forward/back/left/right state and jump come
-     * from the KeyBinding setHold calls -- KeyboardInput.tick() rebuilds input.playerInput from
-     * those keybindings every tick, and overwriting playerInput from here would mask the rising
-     * edge detection Minecraft uses for creative double-tap fly.
+     * Applies the stick deflection over the vector vanilla just derived from the key bindings.
+     *
+     * <p>Movement still goes through those key bindings, so rising-edge behaviour like creative
+     * double-tap fly keeps working. This only replaces the magnitude, and it has to run from
+     * KeyboardInputMixin rather than from the client tick: KeyboardInput.tick() rebuilds the vector
+     * from those same bindings and normalises it, which used to discard the stick's deflection
+     * entirely - every push past the deadzone moved at full speed.
+     *
+     * <p>Sideways is negated because vanilla builds Vec2(sideways, forward) with a positive value
+     * meaning left, while the stick reports positive to the right. Unlike 1.20.1 there is no
+     * slow-down to re-apply: LocalPlayer.aiStep scales the vector after this runs.
      */
-    private static void applyAnalogMovementVector(MinecraftClient client, GameplayInputFrame frame) {
-        if (client.player == null || client.player.input == null) {
+    public void applyAnalogMovement(ClientInput input, GameplayInputFrame frame) {
+        if (input == null || frame == null) {
             return;
         }
-        setMovementVector(client.player.input, frame.processedMoveX(), -frame.processedMoveY());
-    }
-
-    private static void clearAnalogMovement(MinecraftClient client) {
-        if (client == null || client.player == null || client.player.input == null) {
+        if (!shouldOverrideMovement(frame.processedMoveX(), frame.processedMoveY())) {
             return;
         }
-        setMovementVector(client.player.input, 0.0F, 0.0F);
+        setMovementVector(input, -frame.processedMoveX(), -frame.processedMoveY());
     }
 
-    private static void cycleSlot(MinecraftClient client, int offset) {
+    /**
+     * Whether the stick should take over the movement vanilla just computed.
+     *
+     * <p>This runs after {@code KeyboardInput.tick}, so writing unconditionally would overwrite the
+     * keyboard's own movement with the stick's - and a centred stick reads zero. A player with a
+     * controller plugged in but their hands on the keyboard would simply stop moving. Inside the
+     * deadzone the translator produces exactly zero, so an idle stick leaves vanilla alone.
+     */
+    static boolean shouldOverrideMovement(float moveX, float moveY) {
+        return moveX != 0.0F || moveY != 0.0F;
+    }
+
+    private static void cycleSlot(Minecraft client, int offset) {
         if (client.player == null) {
             return;
         }
@@ -122,38 +138,38 @@ public final class MinecraftInputApplier {
         selectSlot(client, nextSlot);
     }
 
-    private static void selectSlot(MinecraftClient client, int slot) {
+    private static void selectSlot(Minecraft client, int slot) {
         if (client.player == null) {
             return;
         }
         int nextSlot = Math.floorMod(slot, 9);
         client.player.getInventory().setSelectedSlot(nextSlot);
-        if (client.player.networkHandler != null) {
-            client.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(nextSlot));
+        if (client.player.connection != null) {
+            client.player.connection.send(new ServerboundSetCarriedItemPacket(nextSlot));
         }
     }
 
-    private static void openPauseMenu(MinecraftClient client) {
-        if (client.currentScreen == null) {
-            client.setScreen(new GameMenuScreen(true));
+    private static void openPauseMenu(Minecraft client) {
+        if (client.gui.screen() == null) {
+            client.gui.setScreen(new PauseScreen(true));
         }
     }
 
-    private static void tap(KeyBinding keyBinding) {
-        InputUtil.Key boundKey = readBoundKey(keyBinding);
+    private static void tap(KeyMapping keyBinding) {
+        InputConstants.Key boundKey = readBoundKey(keyBinding);
         if (boundKey != null) {
-            KeyBinding.onKeyPressed(boundKey);
+            KeyMapping.click(boundKey);
             return;
         }
-        keyBinding.setPressed(true);
-        keyBinding.setPressed(false);
+        keyBinding.setDown(true);
+        keyBinding.setDown(false);
     }
 
-    private static void setHold(KeyBinding keyBinding, boolean pressed) {
-        keyBinding.setPressed(pressed);
+    private static void setHold(KeyMapping keyBinding, boolean pressed) {
+        keyBinding.setDown(pressed);
     }
 
-    private void applyJumpKey(KeyBinding keyBinding, boolean held) {
+    private void applyJumpKey(KeyMapping keyBinding, boolean held) {
         if (held && !previousJumpHeld) {
             tap(keyBinding);
         }
@@ -161,7 +177,7 @@ public final class MinecraftInputApplier {
         previousJumpHeld = held;
     }
 
-    private void applyActionKey(KeyBinding keyBinding, boolean held, boolean isAttack) {
+    private void applyActionKey(KeyMapping keyBinding, boolean held, boolean isAttack) {
         boolean wasHeld = isAttack ? previousAttackHeld : previousUseHeld;
         if (held && !wasHeld) {
             tap(keyBinding);
@@ -174,18 +190,18 @@ public final class MinecraftInputApplier {
         }
     }
 
-    private static InputUtil.Key readBoundKey(KeyBinding keyBinding) {
+    private static InputConstants.Key readBoundKey(KeyMapping keyBinding) {
         if (keyBinding instanceof KeyBindingAccessor accessor) {
             return accessor.bettercontroller$getBoundKey();
         }
         if (!warnedMissingBoundKeyAccessor) {
             warnedMissingBoundKeyAccessor = true;
-            BetterControllerMod.LOGGER.warn("KeyBinding accessor unavailable; controller tap fallback path is active.");
+            BetterControllerMod.LOGGER.warn("KeyMapping accessor unavailable; controller tap fallback path is active.");
         }
         return null;
     }
 
-    private static void setMovementVector(Input input, float moveX, float moveY) {
+    private static void setMovementVector(ClientInput input, float moveX, float moveY) {
         if (input == null) {
             return;
         }
@@ -200,12 +216,12 @@ public final class MinecraftInputApplier {
         }
 
         if (input instanceof InputAccessor accessor) {
-            accessor.bettercontroller$setMovementVector(new Vec2f(clampedX, clampedY));
+            accessor.bettercontroller$setMovementVector(new Vec2(clampedX, clampedY));
             return;
         }
         if (!warnedMissingMovementVectorAccessor) {
             warnedMissingMovementVectorAccessor = true;
-            BetterControllerMod.LOGGER.warn("Input accessor unavailable; analog movement vector could not be applied.");
+            BetterControllerMod.LOGGER.warn("ClientInput accessor unavailable; analog movement vector could not be applied.");
         }
     }
 }

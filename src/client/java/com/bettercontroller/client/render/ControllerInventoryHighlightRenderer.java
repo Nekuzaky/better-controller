@@ -4,10 +4,10 @@ import com.bettercontroller.BetterControllerMod;
 import com.bettercontroller.client.gui.ControllerInventorySelectionState;
 import com.bettercontroller.client.input.ControllerRuntime;
 import com.bettercontroller.client.mixin.HandledScreenAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.Slot;
 
 /**
  * Draws a controller-driven selection highlight on the currently focused inventory slot.
@@ -16,11 +16,11 @@ public final class ControllerInventoryHighlightRenderer {
     private static final int SLOT_SIZE = 20;
     private static boolean warnedMissingHandledScreenAccessor;
 
-    public void render(MinecraftClient client, DrawContext context, ControllerRuntime runtime) {
+    public void render(Minecraft client, GuiGraphicsExtractor context, ControllerRuntime runtime) {
         if (client == null || context == null || runtime == null) {
             return;
         }
-        if (!(client.currentScreen instanceof HandledScreen<?> handledScreen)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> handledScreen)) {
             return;
         }
         if (runtime.latestSnapshot() == null || !runtime.latestSnapshot().isConnected()) {
@@ -32,14 +32,14 @@ public final class ControllerInventoryHighlightRenderer {
 
         ControllerInventorySelectionState selectionState = runtime.inventorySelectionState();
         Slot selectedSlot = selectionState.resolveSelectedSlot(handledScreen);
-        if (selectedSlot != null && selectedSlot.isEnabled()) {
+        if (selectedSlot != null && selectedSlot.isActive()) {
             renderSelectionHighlight(handledScreen, context, selectedSlot, selectionState);
         }
     }
 
     private static void renderSelectionHighlight(
-        HandledScreen<?> handledScreen,
-        DrawContext context,
+        AbstractContainerScreen<?> handledScreen,
+        GuiGraphicsExtractor context,
         Slot selectedSlot,
         ControllerInventorySelectionState selectionState
     ) {
@@ -51,7 +51,7 @@ public final class ControllerInventoryHighlightRenderer {
         int right = left + SLOT_SIZE;
         int bottom = top + SLOT_SIZE;
 
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         double pulse = 0.5D + (0.5D * Math.sin(now * 0.009D));
         long sinceChange = Math.max(0L, now - selectionState.lastSelectionChangeMs());
         double settle = Math.min(1.0D, sinceChange / 240.0D);
@@ -64,17 +64,17 @@ public final class ControllerInventoryHighlightRenderer {
 
         context.fill(left - glowPad, top - glowPad, right + glowPad, bottom + glowPad, (outerAlpha << 24) | 0x30B8FF);
         context.fill(left, top, right, bottom, (innerAlpha << 24) | 0x58C8FF);
-        context.drawStrokedRectangle(
+        context.outline(
             left - grow,
             top - grow,
             SLOT_SIZE + (grow * 2),
             SLOT_SIZE + (grow * 2),
             (borderAlpha << 24) | 0xE7F7FF
         );
-        context.drawStrokedRectangle(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
+        context.outline(left + 1, top + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 0x66FFFFFF);
     }
 
-    private static int handledScreenX(HandledScreen<?> screen) {
+    private static int handledScreenX(AbstractContainerScreen<?> screen) {
         if (screen instanceof HandledScreenAccessor accessor) {
             return accessor.bettercontroller$getX();
         }
@@ -82,7 +82,7 @@ public final class ControllerInventoryHighlightRenderer {
         return 0;
     }
 
-    private static int handledScreenY(HandledScreen<?> screen) {
+    private static int handledScreenY(AbstractContainerScreen<?> screen) {
         if (screen instanceof HandledScreenAccessor accessor) {
             return accessor.bettercontroller$getY();
         }
@@ -95,6 +95,15 @@ public final class ControllerInventoryHighlightRenderer {
             return;
         }
         warnedMissingHandledScreenAccessor = true;
-        BetterControllerMod.LOGGER.warn("HandledScreen accessor unavailable; inventory highlight position fallback in use.");
+        BetterControllerMod.LOGGER.warn("AbstractContainerScreen accessor unavailable; inventory highlight position fallback in use.");
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }
