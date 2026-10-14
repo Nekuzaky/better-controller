@@ -13,7 +13,9 @@ buildscript {
 
 apply plugin: 'net.minecraftforge.gradle.forge'
 
-version = project.mod_version
+// The Minecraft version rides along as semver build metadata, so JARs from the
+// different version branches never share a file name: bettercontroller-0.3.0+1.12.2.jar
+version = "${project.mod_version}+${project.minecraft_version}"
 group = project.maven_group
 archivesBaseName = project.archives_base_name
 
@@ -52,8 +54,11 @@ dependencies {
     glfwBundle "org.lwjgl:lwjgl:${project.lwjgl_version}:natives-macos"
     glfwBundle "org.lwjgl:lwjgl-glfw:${project.lwjgl_version}:natives-macos"
 
-    testCompile 'org.junit.jupiter:junit-jupiter-api:5.8.2'
-    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+    testCompile 'org.junit.jupiter:junit-jupiter-api:5.14.4'
+    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.14.4'
+    // JUnit 5.12+ no longer finds a launcher on Gradle 4.10's own classpath, and without this
+    // line the test task passes having run nothing at all - 0 tests, no error.
+    testRuntime 'org.junit.platform:junit-platform-launcher:1.14.4'
 }
 
 

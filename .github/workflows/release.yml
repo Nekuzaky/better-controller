@@ -2,9 +2,11 @@ name: Release
 
 on:
   push:
+    # One tag per (mod version, Minecraft version): v0.3.0+1.21.11, v0.3.0+26.2, ...
+    # The '+<minecraft>' suffix is required - the same mod version ships on every
+    # version branch, so the bare number alone is ambiguous.
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: write
@@ -16,28 +18,93 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          # Full history, so the next step can tell whether the tag sits on main.
+          fetch-depth: 0
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      # ForgeGradle 2.3 pins Gradle 4.10.3 and Java 8.
+      - name: Set up JDK 8
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '8'
           cache: gradle
 
-      - name: Grant execute permission
-        run: chmod +x gradlew
+      # Catches the classic release mistakes: tagging v0.3.0 while gradle.properties
+      # still says 0.2.0, or pushing a 1.21.11 tag from the 26.2 branch. Either would
+      # publish a JAR whose name contradicts the tag.
+      - name: Check the tag matches mod_version and minecraft_version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          tag_version="${tag%%+*}"
+          tag_minecraft="${tag#*+}"
+          mod_version="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '
+')"
+          minecraft_version="$(sed -n 's/^minecraft_version=//p' gradle.properties | tr -d '
+')"
+          if [ -z "$mod_version" ] || [ -z "$minecraft_version" ]; then
+            echo "::error::mod_version or minecraft_version not found in gradle.properties"
+            exit 1
+          fi
+          if [ "$tag_minecraft" = "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME has no +<minecraft> suffix; use v$mod_version+$minecraft_version"
+            exit 1
+          fi
+          if [ "$tag_version" != "$mod_version" ] && [ "${tag_version%%-*}" != "$mod_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match mod_version=$mod_version"
+            exit 1
+          fi
+          if [ "$tag_minecraft" != "$minecraft_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME targets $tag_minecraft but this branch builds $minecraft_version"
+            exit 1
+          fi
+          echo "Releasing $GITHUB_REF_NAME from mod_version=$mod_version for Minecraft $minecraft_version"
+
+      # Only a release cut from main (the newest Minecraft) becomes the repo's
+      # "Latest release"; a patch for an older line must not steal that badge.
+      - name: Check whether the tag is on main
+        id: line
+        run: |
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build release JAR
         run: ./gradlew build --stacktrace
 
+      # build/libs also holds the sources JAR, which must never be offered as the
+      # download: it is not loadable, and a player who grabs it gets a mod that
+      # silently does nothing. Select the one real artifact and fail on ambiguity
+      # rather than uploading whatever a glob happens to match.
+      - name: Select the mod JAR
+        id: artifact
+        run: |
+          shopt -s nullglob
+          candidates=()
+          for jar in build/libs/*.jar; do
+            case "$jar" in
+              *-sources.jar|*-javadoc.jar|*-dev.jar|*-dev-shadow.jar) continue ;;
+            esac
+            candidates+=("$jar")
+          done
+          if [ ${#candidates[@]} -ne 1 ]; then
+            echo "::error::Expected exactly one mod JAR in build/libs, found ${#candidates[@]}: ${candidates[*]}"
+            exit 1
+          fi
+          echo "path=${candidates[0]}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${candidates[0]}"
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: BetterController ${{ github.ref_name }}
           body_path: CHANGELOG.md
-          files: build/libs/bettercontroller-*.jar
+          files: ${{ steps.artifact.outputs.path }}
           fail_on_unmatched_files: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ steps.line.outputs.latest }}
           generate_release_notes: true

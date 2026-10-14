@@ -1,10 +1,13 @@
 name: CI
 
+# One branch per Minecraft version: main tracks the latest release, mc/<version>
+# keeps every older line buildable. Each branch carries its own copy of this file
+# with the JDK its toolchain needs.
 on:
   push:
-    branches: [main, develop, 'fabric-*', 'feature/**', 'fix/**']
+    branches: [main, 'mc/**']
   pull_request:
-    branches: [main, develop, 'fabric-*']
+    branches: [main, 'mc/**']
   workflow_dispatch:
 
 permissions:
@@ -15,50 +18,46 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # ForgeGradle 2.3 is the only toolchain that still builds 1.12.2, and it pins
+  # Gradle 4.10.3 and Java 8 - which is also what the game itself runs on.
+  BUILD_JDK: '8'
+
 jobs:
   build-and-test:
-    name: Build & Test (Java 21)
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up JDK ${{ env.BUILD_JDK }}
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.BUILD_JDK }}
           cache: gradle
-
-      - name: Grant execute permission
-        run: chmod +x gradlew
 
       - name: Build
         run: ./gradlew build --stacktrace
 
       - name: Publish test results
         if: always()
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         with:
           name: JUnit Tests
           path: build/test-results/**/*.xml
           reporter: java-junit
           fail-on-error: true
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: build/reports/jacoco/test/html/
-          if-no-files-found: ignore
-
       - name: Upload mod JAR
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bettercontroller-snapshot
-          path: build/libs/bettercontroller-*.jar
+          path: |
+            build/libs/bettercontroller-*.jar
+            !build/libs/*-sources.jar
           if-no-files-found: error
           retention-days: 14
