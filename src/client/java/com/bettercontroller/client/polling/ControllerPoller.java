@@ -106,6 +106,9 @@ public final class ControllerPoller {
                 warnedUnresolvedPreference = false;
                 return preferred;
             }
+            // The reason there is no controller is the preference, not a missing mapping. Leaving a
+            // stale unmapped device here would make the F8 overlay blame the wrong thing.
+            clearUnmappedJoystick();
             warnUnresolvedPreference(preferredGuid, preferredIndex);
             return -1;
         }

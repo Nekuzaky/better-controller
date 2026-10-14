@@ -13,6 +13,7 @@ import com.bettercontroller.client.polling.ControllerType;
 import com.bettercontroller.client.translation.GameplayInputFrame;
 import com.bettercontroller.client.translation.InputTranslator;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.Input;
 import net.minecraft.text.Text;
 
 import java.nio.file.Path;
@@ -125,6 +126,21 @@ public final class ControllerRuntime {
         ControllerConfig config = mutableConfig();
         updater.accept(config);
         latestConfig = config;
+    }
+
+    /**
+     * Applies the analog stick to vanilla movement, called from KeyboardInputMixin at the point
+     * where the value survives until the player reads it. Does nothing unless a controller is
+     * driving the game, so vanilla keyboard movement is untouched otherwise.
+     */
+    public void applyAnalogMovement(Input input) {
+        if (latestConfig == null || !latestConfig.autoActivateOnController) {
+            return;
+        }
+        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
+            return;
+        }
+        inputApplier.applyAnalogMovement(input, latestFrame);
     }
 
     /** Name and GUID of a connected joystick GLFW cannot drive, or null. */

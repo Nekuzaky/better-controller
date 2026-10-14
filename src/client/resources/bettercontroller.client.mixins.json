@@ -8,6 +8,7 @@
     "GameRendererMixin",
     "HandledScreenAccessor",
     "InputAccessor",
+    "KeyboardInputMixin",
     "KeyBindingAccessor"
   ],
   "injectors": {
