@@ -9,7 +9,12 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class ControllerConfig {
-    public int schemaVersion = 10;
+    /** The schema that changed the menu repeat defaults; see {@link #migrateFrom}. */
+    static final int MENU_TIMING_SCHEMA = 11;
+    static final int LEGACY_MENU_INITIAL_REPEAT_DELAY_MS = 140;
+    static final int LEGACY_MENU_REPEAT_INTERVAL_MS = 55;
+
+    public int schemaVersion = MENU_TIMING_SCHEMA;
     public boolean autoActivateOnController = true;
 
     /**
@@ -97,6 +102,27 @@ public final class ControllerConfig {
 
         mergeMissingAxes(axes, fallback.axes);
         mergeMissingBindings(bindings, fallback.bindings);
+    }
+
+    /**
+     * Brings values written by an older schema up to date. Called on the raw values read from
+     * disk, before anything is clamped or backfilled.
+     *
+     * <p>Schema 11 slowed menu repeat from 140/55 ms to 300/170 ms. The config file is copied out
+     * on first run and then owns its values, so changing the default alone reached nobody who
+     * had already played. A file still carrying exactly the old pair never chose it - that was
+     * the default - and is moved to the new one. Anything else was set on purpose and is kept.
+     */
+    public void migrateFrom(int loadedSchemaVersion) {
+        if (loadedSchemaVersion >= MENU_TIMING_SCHEMA) {
+            return;
+        }
+        if (menuInitialRepeatDelayMs == LEGACY_MENU_INITIAL_REPEAT_DELAY_MS
+            && menuRepeatIntervalMs == LEGACY_MENU_REPEAT_INTERVAL_MS) {
+            ControllerConfig fallback = createDefault();
+            menuInitialRepeatDelayMs = fallback.menuInitialRepeatDelayMs;
+            menuRepeatIntervalMs = fallback.menuRepeatIntervalMs;
+        }
     }
 
     public ResolvedLayout resolveLayout() {
