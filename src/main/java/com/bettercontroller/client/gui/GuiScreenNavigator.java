@@ -35,6 +35,7 @@ public final class GuiScreenNavigator {
     private GuiScreen boundScreen;
     private List<GuiButton> boundButtons = new ArrayList<GuiButton>();
     private GuiButton selected;
+    private boolean justOpened;
 
     /**
      * Rebinds to a screen. Forge fires this after {@code initGui}, which is also when a screen
@@ -47,7 +48,7 @@ public final class GuiScreenNavigator {
         boundButtons = buttons == null ? new ArrayList<GuiButton>() : buttons;
         if (!sameScreen) {
             selected = null;
-            router.reset();
+            suppressNextFrame();
         } else if (selected != null && !boundButtons.contains(selected)) {
             selected = null;
         }
@@ -57,7 +58,22 @@ public final class GuiScreenNavigator {
         boundScreen = null;
         boundButtons = new ArrayList<GuiButton>();
         selected = null;
+        justOpened = false;
         router.reset();
+    }
+
+    /**
+     * Makes the next tick record what is held without acting on it.
+     *
+     * <p>Needed whenever this navigator takes over input it has not been watching: a new screen,
+     * or the same screen after the virtual keyboard or the container navigator had it. The
+     * router's state is stale then, and pulse() reads a held button with no previous state as a
+     * fresh press - so the A that opened a screen clicked that screen's first button, and a B
+     * held a moment too long backed out through several menus.
+     */
+    public void suppressNextFrame() {
+        router.reset();
+        justOpened = true;
     }
 
     public void onScreenTick(
@@ -76,6 +92,11 @@ public final class GuiScreenNavigator {
         }
 
         GuiInputFrame frame = router.route(snapshot, config, layout, translator, false);
+        if (justOpened) {
+            // Routing was still needed: it records what is held right now. The frame is dropped.
+            justOpened = false;
+            return;
+        }
         if (!frame.anyNavigation()) {
             return;
         }
@@ -87,11 +108,13 @@ public final class GuiScreenNavigator {
             }
             return;
         }
-
         if (selected == null || !candidates.contains(selected)) {
             selected = candidates.get(0);
         }
+        handleFrame(client, frame, candidates);
+    }
 
+    private void handleFrame(Minecraft client, GuiInputFrame frame, List<GuiButton> candidates) {
         // Sliders take left/right for their value, so those never move the selection while one is
         // highlighted - otherwise a slider could never be adjusted, only skipped past.
         boolean onSlider = isSlider(selected);
@@ -113,7 +136,10 @@ public final class GuiScreenNavigator {
         if (frame.confirm() && !onSlider) {
             // Sliders are excluded deliberately. Confirming one would activate it as a button, and
             // on the other versions that snapped the value to wherever the synthetic click landed.
+            // Nothing else runs after it: the button may well have replaced the screen, and a B in
+            // the same frame would then back out of the new one.
             activate(client, client.currentScreen, selected);
+            return;
         }
         if (frame.back()) {
             pressEscape(client.currentScreen);

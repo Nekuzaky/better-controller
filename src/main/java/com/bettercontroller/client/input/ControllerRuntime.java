@@ -55,6 +55,7 @@ public final class ControllerRuntime {
     private final ContainerNavigator containerNavigator = new ContainerNavigator();
     private final VirtualKeyboardOverlay virtualKeyboard = new VirtualKeyboardOverlay();
     private final ControllerDebugOverlay debugOverlay = new ControllerDebugOverlay();
+    private final ScreenExitGate screenExitGate = new ScreenExitGate();
     private final Path configDirectory;
 
     private ControllerSnapshot latestSnapshot;
@@ -67,6 +68,7 @@ public final class ControllerRuntime {
     private boolean mappingsApplied;
     private boolean wasControllerConnected;
     private boolean wasScreenOpen;
+    private boolean buttonsDroveLastTick;
 
     public ControllerRuntime(GlfwBridge glfw, Path configDirectory) {
         this.glfw = glfw;
@@ -134,22 +136,8 @@ public final class ControllerRuntime {
         activeLayout = latestConfig.resolveLayout();
         wasControllerConnected = true;
 
-        // A screen is open: drop every gameplay hold and drive the menu instead.
         if (client.currentScreen != null) {
-            wasScreenOpen = true;
-            latestFrame = inputTranslator.emptyFrame();
-            inputApplier.releaseGameplayHolds(client);
-            // Exactly one of these drives the screen, and each says whether it took the tick.
-            // Otherwise a single stick push would move a key, a slot and a button at once.
-            boolean handled = virtualKeyboard.onScreenTick(
-                client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
-            if (!handled) {
-                handled = containerNavigator.onScreenTick(
-                    client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
-            }
-            if (!handled) {
-                screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
-            }
+            tickInScreen(client);
             return;
         }
         if (wasScreenOpen) {
@@ -159,7 +147,38 @@ public final class ControllerRuntime {
             // reference to a dead screen, and through it its container, slots and item stacks.
             wasScreenOpen = false;
             onScreenClosed();
+            screenExitGate.arm();
         }
+        tickInWorld(client);
+    }
+
+    /** A screen is open: drop every gameplay hold and drive the menu instead. */
+    private void tickInScreen(Minecraft client) {
+        wasScreenOpen = true;
+        latestFrame = inputTranslator.emptyFrame();
+        inputApplier.releaseGameplayHolds(client);
+        // Exactly one of these drives the screen, and each says whether it took the tick.
+        // Otherwise a single stick push would move a key, a slot and a button at once.
+        boolean handled = virtualKeyboard.onScreenTick(
+            client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+        if (!handled) {
+            handled = containerNavigator.onScreenTick(
+                client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+        }
+        if (handled) {
+            buttonsDroveLastTick = false;
+            return;
+        }
+        if (!buttonsDroveLastTick) {
+            // Taking over from the keyboard or the container navigator, whose B or A may still be
+            // held: the B that dismisses the keyboard on a sign must not then close the sign.
+            buttonsDroveLastTick = true;
+            screenNavigator.suppressNextFrame();
+        }
+        screenNavigator.onScreenTick(client, latestSnapshot, latestConfig, activeLayout, inputTranslator);
+    }
+
+    private void tickInWorld(Minecraft client) {
         if (client.player == null || client.world == null) {
             latestFrame = inputTranslator.emptyFrame();
             inputApplier.releaseGameplayHolds(client);
@@ -167,6 +186,7 @@ public final class ControllerRuntime {
         }
 
         GameplayInputFrame frame = inputTranslator.translate(latestSnapshot, latestConfig, activeLayout);
+        screenExitGate.filter(frame);
         if (frame.chatTap()) {
             // Opening chat from the controller is the request for a keyboard. Pressing T is not:
             // a player already at the keyboard does not want half the screen covered by a worse
@@ -224,6 +244,7 @@ public final class ControllerRuntime {
     }
 
     public void onScreenClosed() {
+        buttonsDroveLastTick = false;
         screenNavigator.onScreenClosed();
         virtualKeyboard.reset();
         containerNavigator.close();
