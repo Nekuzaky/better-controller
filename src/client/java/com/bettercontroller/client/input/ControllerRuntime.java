@@ -6,6 +6,7 @@ import com.bettercontroller.client.config.ControllerConfigManager;
 import com.bettercontroller.client.glyph.ControllerGlyphService;
 import com.bettercontroller.client.gui.ControllerGuiNavigationHooks;
 import com.bettercontroller.client.gui.ControllerInventorySelectionState;
+import com.bettercontroller.client.polling.ControllerMappings;
 import com.bettercontroller.client.polling.ControllerPoller;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.polling.ControllerType;
@@ -18,8 +19,19 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 
 public final class ControllerRuntime {
-    private static final long LOOK_DELTA_MIN_MS = 4L;
-    private static final long LOOK_DELTA_MAX_MS = 75L;
+    private static final long NANOS_PER_MS = 1_000_000L;
+    private static final long LOOK_DELTA_MIN_NANOS = NANOS_PER_MS;
+    private static final long LOOK_DELTA_MAX_NANOS = 75L * NANOS_PER_MS;
+    private static final long LOOK_DELTA_DEFAULT_NANOS = 16L * NANOS_PER_MS;
+    private static final double LOOK_REFERENCE_SECONDS = 1.0D / 30.0D;
+    /**
+     * Weight of the newest frame in the smoothed frame delta. A stick reports a rate, so the angle
+     * turned is rate x elapsed time - and the only elapsed time available is the previous frame's.
+     * Under uneven frame pacing that turns frame-time noise into camera-speed noise, which a mouse
+     * never suffers because its hardware reports an already-integrated displacement. Averaging a
+     * few frames removes the noise; being a mean, it leaves the average turn rate untouched.
+     */
+    private static final float FRAME_DELTA_SMOOTHING = 0.25F;
     private static final long STATUS_CONNECTED_MS = 3000L;
     private static final long STATUS_DISCONNECTED_MS = 3200L;
     private static final long STATUS_PROFILE_SWITCH_MS = 2400L;
@@ -42,7 +54,9 @@ public final class ControllerRuntime {
     private ControllerConfig.ResolvedLayout activeLayout;
     private ControllerType activeControllerType = ControllerType.NONE;
     private GameplayInputFrame latestFrame;
-    private long lastRenderLookUpdateMs;
+    private long lastRenderLookUpdateNanos;
+    private float smoothedFrameSeconds;
+    private boolean mappingsApplied;
     private boolean wasControllerConnected;
     private int previousJoystickId = -1;
     private ControllerType previousControllerType = ControllerType.NONE;
@@ -113,13 +127,28 @@ public final class ControllerRuntime {
         latestConfig = config;
     }
 
+    /** Name and GUID of a connected joystick GLFW cannot drive, or null. */
+    public String unmappedJoystick() {
+        return controllerPoller.unmappedJoystick();
+    }
+
     public void tick(MinecraftClient client) {
         if (client == null) {
             return;
         }
 
+        // Deferred to the first tick rather than done at mod init: this calls GLFW, and a tick
+        // only ever runs once the window - and therefore GLFW - is up.
+        if (!mappingsApplied) {
+            mappingsApplied = true;
+            ControllerMappings.applyUserMappings(configManager.configPath().getParent());
+        }
+
         latestConfig = configManager.getConfig();
-        latestSnapshot = controllerPoller.pollSnapshot();
+        latestSnapshot = controllerPoller.pollSnapshot(
+            latestConfig.preferredControllerGuid,
+            latestConfig.preferredJoystickIndex
+        );
 
         if (latestSnapshot == null || !latestSnapshot.isConnected()) {
             tickWhileDisconnected(client);
@@ -218,26 +247,21 @@ public final class ControllerRuntime {
         latestFrame = frame;
     }
 
+    /**
+     * Camera path, run once per rendered frame. The look axes are re-sampled here rather than in
+     * {@link #tick} so the stick is read at frame rate instead of at the 20 Hz client tick.
+     */
     public void onRenderFrame(MinecraftClient client) {
-        if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
-            resetRenderLookClock();
-            return;
-        }
-        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
-            resetRenderLookClock();
-            return;
-        }
-        if (client.currentScreen != null || client.player == null || client.world == null) {
+        if (!isLookActive(client)) {
             resetRenderLookClock();
             return;
         }
 
-        long now = System.currentTimeMillis();
-        long deltaMs = lastRenderLookUpdateMs == 0L ? 16L : now - lastRenderLookUpdateMs;
-        deltaMs = Math.max(LOOK_DELTA_MIN_MS, Math.min(deltaMs, LOOK_DELTA_MAX_MS));
-        lastRenderLookUpdateMs = now;
+        float deltaSeconds = advanceRenderLookClock();
+        latestSnapshot = controllerPoller.refreshAxes();
+        inputTranslator.updateLook(latestSnapshot, latestConfig, activeLayout, latestFrame, deltaSeconds);
 
-        double baseScale = deltaMs / 33.333D;
+        double baseScale = deltaSeconds / LOOK_REFERENCE_SECONDS;
         double speedMultiplier = latestConfig.lookSpeedMultiplier;
         double stickMagnitude = Math.max(
             Math.abs(latestFrame.processedLookX()),
@@ -252,8 +276,39 @@ public final class ControllerRuntime {
         );
     }
 
+    private boolean isLookActive(MinecraftClient client) {
+        if (client == null || latestConfig == null || !latestConfig.autoActivateOnController) {
+            return false;
+        }
+        if (latestSnapshot == null || !latestSnapshot.isConnected() || latestFrame == null) {
+            return false;
+        }
+        if (activeLayout == null) {
+            return false;
+        }
+        return client.currentScreen == null && client.player != null && client.world != null;
+    }
+
+    private float advanceRenderLookClock() {
+        long now = System.nanoTime();
+        long deltaNanos = lastRenderLookUpdateNanos == 0L
+            ? LOOK_DELTA_DEFAULT_NANOS
+            : now - lastRenderLookUpdateNanos;
+        deltaNanos = Math.max(LOOK_DELTA_MIN_NANOS, Math.min(deltaNanos, LOOK_DELTA_MAX_NANOS));
+        lastRenderLookUpdateNanos = now;
+
+        float rawSeconds = (float) (deltaNanos / 1_000_000_000.0D);
+        if (smoothedFrameSeconds <= 0.0F) {
+            smoothedFrameSeconds = rawSeconds;
+        } else {
+            smoothedFrameSeconds += (rawSeconds - smoothedFrameSeconds) * FRAME_DELTA_SMOOTHING;
+        }
+        return smoothedFrameSeconds;
+    }
+
     private void resetRenderLookClock() {
-        lastRenderLookUpdateMs = 0L;
+        lastRenderLookUpdateNanos = 0L;
+        smoothedFrameSeconds = 0.0F;
     }
 
     private static double clamp(double value, double min, double max) {

@@ -1,14 +1,20 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "_documentation": [
     "BetterController config (V3 simplified).",
     "Axes support inversion with '-' prefix. Example: -RIGHT_Y.",
     "Button aliases supported: A/B/X/Y, CROSS/CIRCLE/SQUARE/TRIANGLE, SWITCH_A/SWITCH_B/SWITCH_X/SWITCH_Y, SOUTH/EAST/WEST/NORTH.",
     "lookResponseCurve supports: linear, exponential_light, exponential_strong.",
     "menuAxisPressThreshold/menuAxisReleaseThreshold add hysteresis for cleaner menu stick navigation.",
-    "menuInitialRepeatDelayMs/menuRepeatIntervalMs control menu navigation repeat speed."
+    "menuInitialRepeatDelayMs/menuRepeatIntervalMs control menu navigation repeat speed.",
+    "preferredControllerGuid/preferredJoystickIndex pin this instance to one pad, for two game",
+    "instances on one machine. Leave empty / -1 to use the first gamepad found. The GUID names a",
+    "device model, so two identical pads share it - use the index to tell those apart. F8 shows",
+    "both values. When a preference is set and no pad matches, no controller is used at all."
   ],
   "autoActivateOnController": true,
+  "preferredControllerGuid": "",
+  "preferredJoystickIndex": -1,
   "movementDeadzone": 0.14,
   "lookDeadzone": 0.07,
   "lookAntiDeadzone": 0.02,

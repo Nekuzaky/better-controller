@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Locale;
 
 public final class InputTranslator {
+    /** Smoothing strengths are expressed per client tick (50 ms) and rescaled to the frame delta. */
+    private static final float SMOOTHING_REFERENCE_SECONDS = 0.05F;
+
     private static final GameplayAction[] HOTBAR_ACTIONS = {
         GameplayAction.HOTBAR_1, GameplayAction.HOTBAR_2, GameplayAction.HOTBAR_3,
         GameplayAction.HOTBAR_4, GameplayAction.HOTBAR_5, GameplayAction.HOTBAR_6,
@@ -26,6 +29,11 @@ public final class InputTranslator {
         return reusableFrame;
     }
 
+    /**
+     * Translates everything that is tick-paced: movement, holds, taps, hotbar. Look is deliberately
+     * excluded - the camera is driven per rendered frame through {@link #updateLook}, so sampling it
+     * here would both stale the stick to 20 Hz and advance the smoothing state twice.
+     */
     public GameplayInputFrame translate(
         ControllerSnapshot snapshot,
         ControllerConfig config,
@@ -37,11 +45,34 @@ public final class InputTranslator {
 
         reusableFrame.clear();
         translateMovement(snapshot, config, layout, reusableFrame);
-        translateLook(snapshot, config, layout, reusableFrame);
         translateHolds(snapshot, config, layout, reusableFrame);
         translateTaps(snapshot, config, layout, reusableFrame);
         translateHotbar(snapshot, config, layout, reusableFrame);
         return reusableFrame;
+    }
+
+    /**
+     * Samples the look axes and writes the resulting delta into {@code frame}. Called once per
+     * rendered frame; {@code deltaSeconds} is the elapsed frame time, used to keep camera smoothing
+     * identical whether the game runs at 30 or 240 fps.
+     */
+    public GameplayInputFrame updateLook(
+        ControllerSnapshot snapshot,
+        ControllerConfig config,
+        ControllerConfig.ResolvedLayout layout,
+        GameplayInputFrame frame,
+        float deltaSeconds
+    ) {
+        if (frame == null) {
+            return null;
+        }
+        if (snapshot == null || config == null || layout == null) {
+            frame.setLook(0.0D, 0.0D, 0.0F, 0.0F);
+            return frame;
+        }
+
+        translateLook(snapshot, config, layout, frame, deltaSeconds);
+        return frame;
     }
 
     public boolean isActionPressed(
@@ -75,8 +106,12 @@ public final class InputTranslator {
         ControllerConfig.ResolvedLayout layout,
         GameplayInputFrame frame
     ) {
-        float moveX = applyDeadzone(readAxis(snapshot, layout.axisToken("move_x")), config.movementDeadzone);
-        float moveY = applyDeadzone(readAxis(snapshot, layout.axisToken("move_y")), config.movementDeadzone);
+        float rawX = readAxis(snapshot, layout.axisToken("move_x"));
+        float rawY = readAxis(snapshot, layout.axisToken("move_y"));
+        float magnitude = (float) Math.sqrt((rawX * rawX) + (rawY * rawY));
+        float factor = radialDeadzoneFactor(magnitude, config.movementDeadzone);
+        float moveX = rawX * factor;
+        float moveY = rawY * factor;
 
         frame.setMovement(
             moveX < -0.05F,
@@ -92,7 +127,8 @@ public final class InputTranslator {
         ControllerSnapshot snapshot,
         ControllerConfig config,
         ControllerConfig.ResolvedLayout layout,
-        GameplayInputFrame frame
+        GameplayInputFrame frame,
+        float deltaSeconds
     ) {
         float lookX = applyLookDeadzone(readAxis(snapshot, layout.axisToken("look_x")), config.lookDeadzone, config.lookAntiDeadzone);
         float lookY = applyLookDeadzone(readAxis(snapshot, layout.axisToken("look_y")), config.lookDeadzone, config.lookAntiDeadzone);
@@ -109,6 +145,7 @@ public final class InputTranslator {
 
         if (config.cameraSmoothing) {
             float smoothing = resolveAdaptiveSmoothing(config.cameraSmoothingStrength, lookX, lookY);
+            smoothing = scaleSmoothingToFrame(smoothing, deltaSeconds);
             smoothedLookX += (lookX - smoothedLookX) * smoothing;
             smoothedLookY += (lookY - smoothedLookY) * smoothing;
         } else {
@@ -247,13 +284,27 @@ public final class InputTranslator {
         return invert ? -value : value;
     }
 
-    private static float applyDeadzone(float value, float deadzone) {
-        float absolute = Math.abs(value);
-        if (absolute < deadzone) {
+    /**
+     * Scale to apply to both movement axes for a circular deadzone.
+     *
+     * <p>Applying a deadzone to each axis on its own makes the dead area a square: a diagonal push
+     * has to travel about 1.41x further to escape it, and rescaling each axis against its own
+     * threshold bends the vector away from where the stick actually points. Working from the
+     * vector's length fixes both - the direction is never touched, only its length.
+     *
+     * @return 0 inside the deadzone, otherwise the factor mapping the remaining travel onto 0..1.
+     */
+    static float radialDeadzoneFactor(float magnitude, float deadzone) {
+        if (magnitude <= 0.0F || magnitude < deadzone) {
             return 0.0F;
         }
-        float scaled = (absolute - deadzone) / (1.0F - deadzone);
-        return Math.copySign(scaled, value);
+        if (deadzone >= 1.0F) {
+            return 0.0F;
+        }
+        // Sticks report a square gate, so a corner reads about 1.41: clamp, or diagonals would
+        // come out faster than cardinals.
+        float scaled = Math.min((magnitude - deadzone) / (1.0F - deadzone), 1.0F);
+        return scaled / magnitude;
     }
 
     private static float applyLookDeadzone(float value, float deadzone, float antiDeadzone) {
@@ -291,6 +342,21 @@ public final class InputTranslator {
         }
         float responsivenessScale = 1.0F - ((magnitude - 0.50F) / 0.50F) * 0.55F;
         return clamp(base * responsivenessScale, 0.08F, 1.0F);
+    }
+
+    /**
+     * Converts a per-tick smoothing factor into the equivalent factor for a frame of
+     * {@code deltaSeconds}, so a 144 fps client does not smooth seven times faster than a 20 Hz one.
+     */
+    private static float scaleSmoothingToFrame(float smoothing, float deltaSeconds) {
+        if (smoothing >= 1.0F) {
+            return 1.0F;
+        }
+        if (smoothing <= 0.0F || deltaSeconds <= 0.0F) {
+            return 0.0F;
+        }
+        double frames = deltaSeconds / SMOOTHING_REFERENCE_SECONDS;
+        return clamp((float) (1.0D - Math.pow(1.0D - smoothing, frames)), 0.0F, 1.0F);
     }
 
     private static float suppressMicroJitter(float value, float previousSmoothed, float threshold) {

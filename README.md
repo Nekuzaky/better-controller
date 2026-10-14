@@ -46,8 +46,10 @@ stay small, predictable and allocation-free while doing it.
 
 - **Plug-and-play.** Auto-detects Xbox, PlayStation, Switch Pro and generic
   XInput controllers, swaps glyphs accordingly, survives hot-disconnect.
-- **Analog everything.** Per-axis deadzone, anti-deadzone, response curve,
-  adaptive smoothing on the right stick.
+- **Analog everything.** Radial deadzone on movement, so a diagonal escapes it at
+  the same distance as a cardinal and the stick direction is never bent. Per-axis
+  deadzone, anti-deadzone, response curve and adaptive smoothing on the look
+  stick.
 - **Full GUI navigation.** Inventories, chests, creative search, options,
   world list, virtual keyboard for chat. Right stick scrolls scrollable
   screens (creative inventory, world list).
@@ -134,6 +136,32 @@ for the full schema with comments.
 - Prefix an axis token with `-` to invert it (e.g. `"-RIGHT_Y"`).
 - An action can have multiple bindings: `"hotbar_next": ["RB", "RT"]`.
 
+### Two players on one machine
+
+Minecraft Java has no splitscreen, and a mod cannot add one — the client is built
+around a single player, world, camera and GUI. What does work is **two game
+instances side by side**, both joined to the same LAN world (two Microsoft
+accounts required; Prism Launcher or MultiMC handle parallel instances well).
+
+For that, each instance has to claim its own pad — otherwise both grab the first
+gamepad and drive the same character. Pin them in each instance's config:
+
+```jsonc
+{
+  "preferredControllerGuid": "78696e70757401000000000000000000",
+  "preferredJoystickIndex": -1
+}
+```
+
+- `F8` shows the **slot** and **GUID** of the pad currently in use.
+- The GUID identifies a device *model*, so two identical pads share one. To tell
+  those apart, leave the GUID empty and set `preferredJoystickIndex` (`0`, `1`, …).
+- Set both and the index must also match the GUID — useful when slots move around.
+- Leave them at `""` / `-1` for the default behaviour: first gamepad found.
+- If a preference is set and nothing matches, **no** controller is used, on
+  purpose: a second instance must never steal the first one's pad. The reason is
+  logged once.
+
 ### Quick tuning
 
 | Goal                       | Try                                                       |
@@ -146,11 +174,19 @@ for the full schema with comments.
 
 ## Architecture
 
+Two clocks. Buttons, movement and menus are tick-paced (20 Hz, `ClientTickEvents`).
+The camera is frame-paced: a Mixin at the head of `GameRenderer.render` samples the
+right stick every rendered frame, at the same point in the frame where vanilla
+applies the mouse — right after `Mouse.tick()` and before the frame's camera is
+built.
+
 ```
 ControllerPoller
      │  ControllerSnapshot
      ▼
 InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
+     │
+     ├──► updateLook()               per frame: camera delta only
      │
      ├──► MinecraftInputApplier      keybindings + analog vector
      │
@@ -167,6 +203,8 @@ InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
 ### Design constraints (NASA Power of Ten, adapted to Java)
 
 - **All functions stay under 60 lines.**
+- **The camera never depends on the HUD.** Look runs on the world render pass,
+  so hiding the HUD (`F1`) does not freeze it.
 - **Zero allocation in the steady-state tick loop.** `GameplayInputFrame` is
   a single mutable instance, `input.movementVector` is mutated in place, and
   `input.playerInput` is left to `KeyboardInput.tick` so Minecraft's native
@@ -239,9 +277,27 @@ controller. Same UX, ~400 fewer lines of config.
 
 ### My favourite controller isn't detected.
 
-Open an [issue](https://github.com/Nekuzaky/BetterController/issues/new?template=bug_report.yml)
-with the GLFW name and GUID — `F8` debug overlay shows both. Detection is
-heuristic and easy to extend.
+Two different problems hide behind that sentence — press `F8` to tell them apart.
+
+**The overlay names your pad but the glyphs are wrong.** The pad works; only the
+type heuristic missed. Open an
+[issue](https://github.com/Nekuzaky/BetterController/issues/new?template=bug_report.yml)
+with the name and GUID shown by `F8`; detection is heuristic and easy to extend.
+
+**The overlay says there is no usable gamepad.** GLFW only reports a joystick as
+a *gamepad* when it has an SDL mapping for that device, and without one the pad is
+invisible rather than mis-detected. GLFW ships a mapping database, but it is a
+snapshot from when that GLFW version was built, so recent pads and
+DirectInput-only devices fall through.
+
+Fix it without waiting for a GLFW update: create
+`config/bettercontroller-mappings.txt` and paste in the line for your device from
+[SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB) (the whole
+file works too). The mod applies it at startup and logs how many mappings it took.
+`F8` prints the GUID you need to match, and the log names the device.
+
+The database is not bundled on purpose: it is around a megabyte of text, which
+would dwarf the mod itself, for a case most players never hit.
 
 ## Contributing
 

@@ -23,6 +23,8 @@ public final class ControllerConfigManager {
         .create();
     private static final String DEFAULT_CONFIG_RESOURCE = "bettercontroller.default.json";
     private static final long CHECK_INTERVAL_MS = 500L;
+    /** GLFW_JOYSTICK_LAST; kept as a literal so config sanitising stays free of GLFW. */
+    private static final int MAX_JOYSTICK_INDEX = 15;
 
     private final Path configPath;
     private ControllerConfig config;
@@ -204,6 +206,15 @@ public final class ControllerConfigManager {
         config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200, 55);
         config.cameraSmoothingStrength = clamp(config.cameraSmoothingStrength, 0.0F, 1.0F, 0.35F);
         config.lookResponseCurve = normalizeResponseCurve(config.lookResponseCurve);
+        config.preferredControllerGuid = normalizeGuid(config.preferredControllerGuid);
+        config.preferredJoystickIndex = clampInt(config.preferredJoystickIndex, -1, MAX_JOYSTICK_INDEX, -1);
+    }
+
+    private static String normalizeGuid(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim();
     }
 
     private static String normalizeResponseCurve(String value) {
