@@ -307,7 +307,43 @@ public final class GuiInputRouter {
         if (translator.isActionPressed(snapshot, config, layout, action)) {
             return true;
         }
+        if (hasRecognizedBinding(layout, action)) {
+            return false;
+        }
         return defaultMenuFallback(snapshot, config, action);
+    }
+
+    /**
+     * Whether the layout binds this action to anything we can actually read.
+     *
+     * <p>The built-in menu defaults are a safety net for an action nobody bound, not a second
+     * set of controls layered under the user's. Without this gate the fallback fires whenever
+     * the configured binding simply isn't pressed, so rebinding an action leaves the original
+     * button working and clearing a binding list does nothing at all. The directional path has
+     * always gated its own fallback this way -- see the hasRecognizedBinding() check in
+     * directionalPressedWithHysteresis.
+     */
+    static boolean hasRecognizedBinding(
+        ControllerConfig.ResolvedLayout layout,
+        GameplayAction action
+    ) {
+        if (layout == null || action == null) {
+            return false;
+        }
+
+        List<String> bindings = layout.actionBindings(action.configKey());
+        for (int i = 0; i < bindings.size(); i++) {
+            String binding = bindings.get(i);
+            if (binding == null || binding.isBlank()) {
+                continue;
+            }
+            String normalized = binding.startsWith("-") ? binding.substring(1) : binding;
+            if (ControllerButton.fromTokenOrNull(normalized) != null
+                || ControllerAxis.fromTokenOrNull(normalized) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean defaultMenuFallback(
