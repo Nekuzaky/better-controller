@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "_documentation": [
     "BetterController config (V3 simplified).",
     "Axes support inversion with '-' prefix. Example: -RIGHT_Y.",
@@ -54,7 +54,7 @@
     "toggle_perspective": ["DPAD_DOWN"],
     "pause": ["START"],
     "player_list": ["BACK"],
-    "pick_block": ["RB"],
+    "pick_block": ["DPAD_LEFT"],
     "hotbar_next": ["RB"],
     "hotbar_previous": ["LB"],
     "hotbar_1": [],

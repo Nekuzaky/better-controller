@@ -22,7 +22,26 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   so the next inventory hides the mouse cursor again while the pad drives it.
 - With a controller pinned but absent, the `F8` overlay blamed a missing GLFW
   mapping instead of the pin. The 1.20.1 line had the fix; this one missed it.
-
+- `RB` was bound to both pick block and next hotbar slot, so one press picked
+  the block and then moved off the slot it had just filled. Pick block is on
+  `DPAD_LEFT` now; configs still on the old `["RB"]` are migrated (schema 12).
+- Rebinding a menu control did not replace it: the built-in default kept
+  answering underneath, so a rebound confirm still fired on `A`, and `RB`
+  moved both the tab and the page in the creative inventory. Defaults now
+  only apply to a menu action with no readable binding.
+- A released trigger rested at 0 instead of GLFW's -1, which reads as half
+  pulled - above the default trigger threshold - on an untouched snapshot.
+- Saving the config truncated the file before writing it, so a crash or full
+  disk mid-save reset every setting. It is written to a temporary file and
+  moved into place now. Unrecognised binding names (say `RIGHT_BUMBER`) are
+  logged against their action instead of being skipped in silence.
+- Elapsed-time checks used the wall clock, so an NTP correction or a manual
+  clock change could stall menu repeat or fire a burst of moves. They use a
+  monotonic clock now.
+- Out-of-range whole numbers in the config fell back to their default while
+  decimals were clamped to the nearest bound. Both clamp now; only
+  `preferredJoystickIndex` still falls back, since clamping an impossible
+  index would pin the mod to an arbitrary pad.
 ### Changed
 - Menu navigation is calmer: the first repeat comes after 300 ms, then one
   step every 170 ms (was 140 / 55 ms, which moved the selection almost every
@@ -36,6 +55,9 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   Java their Minecraft version ships with.
 
 ### Removed
+- Unused code: a config preview method that mutated the live config it was
+  meant to leave alone, four other members nothing called, and a Maven
+  publication with no repository to publish to.
 - `examples/bettercontroller.example.json` still described the pre-0.1.0
   config (per-controller layouts, radial menu, vibration). It is now a copy of
   the shipped defaults.

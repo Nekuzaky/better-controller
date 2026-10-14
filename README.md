@@ -104,8 +104,9 @@ from CurseForge and it handles the Fabric API dependency for you.
 | Inventory                | Y / Triangle   |
 | Drop item                | B / Circle     |
 | Swap hands               | X / Square     |
-| Pick block / Hotbar next | RB             |
+| Hotbar next              | RB             |
 | Hotbar previous          | LB             |
+| Pick block               | D-pad ←        |
 | Open chat                | D-pad ↑        |
 | Toggle perspective       | D-pad ↓        |
 | Pause                    | Start          |
