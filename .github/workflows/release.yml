@@ -39,10 +39,8 @@ jobs:
           tag="${GITHUB_REF_NAME#v}"
           tag_version="${tag%%+*}"
           tag_minecraft="${tag#*+}"
-          mod_version="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '
-')"
-          minecraft_version="$(sed -n 's/^minecraft_version=//p' gradle.properties | tr -d '
-')"
+          mod_version="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')"
+          minecraft_version="$(sed -n 's/^minecraft_version=//p' gradle.properties | tr -d '\r')"
           if [ -z "$mod_version" ] || [ -z "$minecraft_version" ]; then
             echo "::error::mod_version or minecraft_version not found in gradle.properties"
             exit 1
