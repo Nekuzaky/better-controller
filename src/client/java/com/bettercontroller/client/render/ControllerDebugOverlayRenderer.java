@@ -127,13 +127,9 @@ public final class ControllerDebugOverlayRenderer {
     }
 
     private static String formatTriggers(ControllerSnapshot snapshot) {
-        float left = normalizeTrigger(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
-        float right = normalizeTrigger(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
+        float left = ControllerAxis.LEFT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
+        float right = ControllerAxis.RIGHT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
         return String.format(Locale.ROOT, "Triggers LT %.3f RT %.3f", left, right);
     }
 
-    private static float normalizeTrigger(float value) {
-        float normalized = (value + 1.0F) * 0.5F;
-        return Math.max(0.0F, Math.min(1.0F, normalized));
-    }
 }

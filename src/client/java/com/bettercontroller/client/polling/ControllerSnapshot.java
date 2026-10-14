@@ -11,7 +11,15 @@ public final class ControllerSnapshot {
     private String joystickGuid = "";
     private ControllerType controllerType = ControllerType.NONE;
     private final boolean[] buttons = new boolean[BUTTONS.length];
-    private final float[] axes = new float[AXES.length];
+    private final float[] axes = restingAxes();
+
+    private static float[] restingAxes() {
+        float[] resting = new float[AXES.length];
+        for (int i = 0; i < AXES.length; i++) {
+            resting[i] = AXES[i].restingValue();
+        }
+        return resting;
+    }
 
     public void update(
         int joystickId,
@@ -50,7 +58,7 @@ public final class ControllerSnapshot {
             buttons[i] = false;
         }
         for (int i = 0; i < axes.length; i++) {
-            axes[i] = 0.0F;
+            axes[i] = AXES[i].restingValue();
         }
     }
 

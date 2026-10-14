@@ -1,7 +1,6 @@
 package com.bettercontroller.client.gui;
 
 import com.bettercontroller.client.config.ControllerConfig;
-import com.bettercontroller.client.polling.ControllerAxis;
 import com.bettercontroller.client.polling.ControllerButton;
 import com.bettercontroller.client.polling.ControllerSnapshot;
 import com.bettercontroller.client.translation.InputTranslator;
@@ -26,17 +25,6 @@ class GuiInputRouterTest {
         translator = new InputTranslator();
         snapshot = ControllerSnapshot.forTest();
         config = ControllerConfig.createDefault();
-        releaseTriggers();
-    }
-
-    /**
-     * GLFW reports a released trigger as -1, not 0, and forTest() leaves every axis at 0 --
-     * which reads as a half-pulled trigger once it is normalized into 0..1. Until the snapshot
-     * models the resting value itself, tests that care about the triggers have to say so.
-     */
-    private void releaseTriggers() {
-        snapshot.simulateAxis(ControllerAxis.LEFT_TRIGGER, -1.0f);
-        snapshot.simulateAxis(ControllerAxis.RIGHT_TRIGGER, -1.0f);
     }
 
     /** One routed screen tick with whatever is currently pressed on the snapshot. */

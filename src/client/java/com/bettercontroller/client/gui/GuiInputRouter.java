@@ -247,7 +247,7 @@ public final class GuiInputRouter {
                 value = -value;
             }
             if (axis.isTrigger()) {
-                value = normalizeTrigger(value);
+                value = axis.normalizePull(value);
             }
             axisMagnitude = Math.max(axisMagnitude, Math.max(0.0F, value));
         }
@@ -359,8 +359,8 @@ public final class GuiInputRouter {
         float triggerThreshold = clampFloat(config.triggerThreshold, 0.01F, 1.0F, 0.45F);
         float leftX = snapshot.axis(ControllerAxis.LEFT_X);
         float leftY = snapshot.axis(ControllerAxis.LEFT_Y);
-        float leftTrigger = normalizeTrigger(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
-        float rightTrigger = normalizeTrigger(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
+        float leftTrigger = ControllerAxis.LEFT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.LEFT_TRIGGER));
+        float rightTrigger = ControllerAxis.RIGHT_TRIGGER.normalizePull(snapshot.axis(ControllerAxis.RIGHT_TRIGGER));
 
         return switch (action) {
             case MENU_UP -> snapshot.isPressed(ControllerButton.DPAD_UP) || leftY <= -axisThreshold;
@@ -377,10 +377,6 @@ public final class GuiInputRouter {
         };
     }
 
-    private static float normalizeTrigger(float value) {
-        float normalized = (value + 1.0F) * 0.5F;
-        return Math.max(0.0F, Math.min(1.0F, normalized));
-    }
 
     private static float clampFloat(float value, float min, float max, float fallback) {
         if (!Float.isFinite(value) || value < min || value > max) {

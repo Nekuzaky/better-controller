@@ -321,8 +321,7 @@ public final class InputTranslator {
         }
 
         if (axisMatch.isTrigger()) {
-            float normalized = (value + 1.0F) * 0.5F;
-            return normalized >= config.triggerThreshold || value >= config.triggerThreshold;
+            return axisMatch.normalizePull(value) >= config.triggerThreshold;
         }
 
         float axisPressThreshold = isMenuAction(action) ? config.menuAxisThreshold : 0.55F;
