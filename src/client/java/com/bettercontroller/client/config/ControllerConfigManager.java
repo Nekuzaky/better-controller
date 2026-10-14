@@ -81,6 +81,7 @@ public final class ControllerConfigManager {
 
         ControllerConfig loaded = readConfigFromDisk();
         int loadedSchemaVersion = loaded.schemaVersion;
+        loaded.migrateFrom(loadedSchemaVersion);
         loaded.ensureDefaults();
         sanitize(loaded);
 
@@ -202,8 +203,8 @@ public final class ControllerConfigManager {
         if (config.menuAxisReleaseThreshold >= config.menuAxisPressThreshold) {
             config.menuAxisReleaseThreshold = Math.max(0.05F, config.menuAxisPressThreshold - 0.10F);
         }
-        config.menuInitialRepeatDelayMs = clampInt(config.menuInitialRepeatDelayMs, 60, 400, 140);
-        config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200, 55);
+        config.menuInitialRepeatDelayMs = clampInt(config.menuInitialRepeatDelayMs, 60, 400, 300);
+        config.menuRepeatIntervalMs = clampInt(config.menuRepeatIntervalMs, 20, 200, 170);
         config.cameraSmoothingStrength = clamp(config.cameraSmoothingStrength, 0.0F, 1.0F, 0.35F);
         config.lookResponseCurve = normalizeResponseCurve(config.lookResponseCurve);
         config.preferredControllerGuid = normalizeGuid(config.preferredControllerGuid);
