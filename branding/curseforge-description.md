@@ -57,7 +57,7 @@ controller with `preferredControllerGuid` / `preferredJoystickIndex`.
 
 ### Links
 
-- Source, issues and full configuration reference: https://github.com/Nekuzaky/BetterController
+- Source, issues and full configuration reference: https://github.com/Nekuzaky/better-controller
 - Licensed MIT.
 
 ---

@@ -10,8 +10,8 @@
   "icon": "assets/bettercontroller/icon.png",
   "contact": {
     "homepage": "https://www.curseforge.com/minecraft/mc-mods/bettercontroller",
-    "sources": "https://github.com/Nekuzaky/BetterController",
-    "issues": "https://github.com/Nekuzaky/BetterController/issues"
+    "sources": "https://github.com/Nekuzaky/better-controller",
+    "issues": "https://github.com/Nekuzaky/better-controller/issues"
   },
   "license": "MIT",
   "environment": "client",
