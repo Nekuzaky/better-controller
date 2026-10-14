@@ -86,7 +86,7 @@ public final class ControllerRuntime {
         if (runtimeStatusMessage.isBlank()) {
             return "";
         }
-        if (System.currentTimeMillis() > runtimeStatusMessageUntilMs) {
+        if (monotonicNowMs() > runtimeStatusMessageUntilMs) {
             runtimeStatusMessage = "";
             runtimeStatusMessageUntilMs = 0L;
             return "";
@@ -326,6 +326,15 @@ public final class ControllerRuntime {
             return;
         }
         runtimeStatusMessage = message;
-        runtimeStatusMessageUntilMs = System.currentTimeMillis() + durationMs;
+        runtimeStatusMessageUntilMs = monotonicNowMs() + durationMs;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

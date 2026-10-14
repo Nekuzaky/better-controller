@@ -3,6 +3,7 @@ package com.bettercontroller.client.gui;
 import com.bettercontroller.client.config.ControllerConfig;
 import com.bettercontroller.client.polling.ControllerButton;
 import com.bettercontroller.client.polling.ControllerSnapshot;
+import com.bettercontroller.client.translation.GameplayAction;
 import com.bettercontroller.client.translation.InputTranslator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -147,5 +148,58 @@ class GuiInputRouterTest {
             config.resolveLayout(),
             com.bettercontroller.client.translation.GameplayAction.MENU_CONFIRM
         ));
+    }
+
+    // --- repeat timing -------------------------------------------------------
+    // pulse() takes its clock reading as an argument, so a hold can be played out
+    // instantly instead of sleeping through 300ms of initial delay.
+
+    private boolean held(long atMs) {
+        return router.pulse(GameplayAction.MENU_DOWN, true, true, 300L, 170L, atMs);
+    }
+
+    @Test
+    void theFirstPressFiresImmediately() {
+        assertTrue(held(1_000L));
+    }
+
+    @Test
+    void aHoldIsQuietUntilTheInitialDelayHasPassed() {
+        held(1_000L);
+
+        assertFalse(held(1_200L), "repeated before the 300ms initial delay");
+        assertFalse(held(1_299L));
+    }
+
+    @Test
+    void aHoldRepeatsOnceTheInitialDelayHasPassed() {
+        held(1_000L);
+
+        assertTrue(held(1_300L));
+    }
+
+    @Test
+    void repeatsAreSpacedByTheInterval() {
+        held(1_000L);
+        held(1_300L);
+
+        assertFalse(held(1_400L), "repeated before the 170ms interval elapsed");
+        assertTrue(held(1_470L));
+    }
+
+    @Test
+    void releasingClearsTheHold() {
+        held(1_000L);
+        held(1_300L);
+
+        router.pulse(GameplayAction.MENU_DOWN, false, true, 300L, 170L, 1_400L);
+
+        assertTrue(held(1_500L), "a fresh press should fire immediately again");
+    }
+
+    @Test
+    void aNonRepeatableActionNeverRepeats() {
+        assertTrue(router.pulse(GameplayAction.MENU_BACK, true, false, 300L, 170L, 1_000L));
+        assertFalse(router.pulse(GameplayAction.MENU_BACK, true, false, 300L, 170L, 9_000L));
     }
 }

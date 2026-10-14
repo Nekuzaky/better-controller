@@ -121,7 +121,7 @@ public final class GuiNavigationController {
             lastAnalogScrollMs = 0L;
             return;
         }
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         long interval = (long) (SCROLL_BASE_INTERVAL_MS / Math.max(0.25F, magnitude));
         if (now - lastAnalogScrollMs < interval) {
             return;
@@ -707,4 +707,13 @@ public final class GuiNavigationController {
         boolean horizontal() { return x != 0; }
         boolean vertical() { return y != 0; }
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

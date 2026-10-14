@@ -51,7 +51,7 @@ public final class ControllerInventoryHighlightRenderer {
         int right = left + SLOT_SIZE;
         int bottom = top + SLOT_SIZE;
 
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         double pulse = 0.5D + (0.5D * Math.sin(now * 0.009D));
         long sinceChange = Math.max(0L, now - selectionState.lastSelectionChangeMs());
         double settle = Math.min(1.0D, sinceChange / 240.0D);
@@ -97,4 +97,13 @@ public final class ControllerInventoryHighlightRenderer {
         warnedMissingHandledScreenAccessor = true;
         BetterControllerMod.LOGGER.warn("AbstractContainerScreen accessor unavailable; inventory highlight position fallback in use.");
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

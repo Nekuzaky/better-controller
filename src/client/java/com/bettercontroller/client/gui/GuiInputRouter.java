@@ -49,16 +49,17 @@ public final class GuiInputRouter {
         boolean tabNextPressed = actionPressedWithFallback(snapshot, config, layout, translator, GameplayAction.MENU_TAB_NEXT);
         boolean tabPrevPressed = actionPressedWithFallback(snapshot, config, layout, translator, GameplayAction.MENU_TAB_PREV);
 
-        boolean upPulse = pulse(GameplayAction.MENU_UP, upPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean downPulse = pulse(GameplayAction.MENU_DOWN, downPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean leftPulse = pulse(GameplayAction.MENU_LEFT, leftPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean rightPulse = pulse(GameplayAction.MENU_RIGHT, rightPressed, true, initialDelayMs, repeatIntervalMs);
-        boolean confirmPulse = pulse(GameplayAction.MENU_CONFIRM, confirmPressed, allowConfirmRepeat, initialDelayMs, repeatIntervalMs);
-        boolean backPulse = pulse(GameplayAction.MENU_BACK, backPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean pageNextPulse = pulse(GameplayAction.MENU_PAGE_NEXT, pageNextPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean pagePrevPulse = pulse(GameplayAction.MENU_PAGE_PREV, pagePrevPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean tabNextPulse = pulse(GameplayAction.MENU_TAB_NEXT, tabNextPressed, false, initialDelayMs, repeatIntervalMs);
-        boolean tabPrevPulse = pulse(GameplayAction.MENU_TAB_PREV, tabPrevPressed, false, initialDelayMs, repeatIntervalMs);
+        long now = monotonicNowMs();
+        boolean upPulse = pulse(GameplayAction.MENU_UP, upPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean downPulse = pulse(GameplayAction.MENU_DOWN, downPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean leftPulse = pulse(GameplayAction.MENU_LEFT, leftPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean rightPulse = pulse(GameplayAction.MENU_RIGHT, rightPressed, true, initialDelayMs, repeatIntervalMs, now);
+        boolean confirmPulse = pulse(GameplayAction.MENU_CONFIRM, confirmPressed, allowConfirmRepeat, initialDelayMs, repeatIntervalMs, now);
+        boolean backPulse = pulse(GameplayAction.MENU_BACK, backPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean pageNextPulse = pulse(GameplayAction.MENU_PAGE_NEXT, pageNextPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean pagePrevPulse = pulse(GameplayAction.MENU_PAGE_PREV, pagePrevPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean tabNextPulse = pulse(GameplayAction.MENU_TAB_NEXT, tabNextPressed, false, initialDelayMs, repeatIntervalMs, now);
+        boolean tabPrevPulse = pulse(GameplayAction.MENU_TAB_PREV, tabPrevPressed, false, initialDelayMs, repeatIntervalMs, now);
 
         return new GuiInputFrame(
             upPulse,
@@ -81,14 +82,18 @@ public final class GuiInputRouter {
         axisLatchStates.clear();
     }
 
-    private boolean pulse(
+    /**
+     * Package-private and taking its own clock reading so the repeat timing can be driven
+     * directly from a test, which is the only way to exercise a hold without sleeping.
+     */
+    boolean pulse(
         GameplayAction action,
         boolean pressed,
         boolean repeatable,
         long initialDelayMs,
-        long repeatIntervalMs
+        long repeatIntervalMs,
+        long now
     ) {
-        long now = System.currentTimeMillis();
         boolean previous = Boolean.TRUE.equals(previousStates.get(action));
 
         if (!pressed) {
@@ -311,6 +316,16 @@ public final class GuiInputRouter {
             return false;
         }
         return defaultMenuFallback(snapshot, config, action);
+    }
+
+    /**
+     * Elapsed-time readings come off nanoTime, not currentTimeMillis: the wall clock is not
+     * monotonic, and an NTP correction stepping it forwards or backwards mid-game would stall
+     * the menu repeat or make it burst. Milliseconds stay the unit so the configured delays
+     * need no conversion.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
     }
 
     /**

@@ -31,7 +31,7 @@ public final class VirtualKeyboardLauncher {
             return false;
         }
 
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         if ((now - lastLaunchTimestamp) < OPEN_COOLDOWN_MS) {
             return false;
         }
@@ -54,7 +54,7 @@ public final class VirtualKeyboardLauncher {
             return;
         }
         pendingOpen = true;
-        pendingSince = System.currentTimeMillis();
+        pendingSince = monotonicNowMs();
     }
 
     public void processPending(ControllerConfig config) {
@@ -64,7 +64,7 @@ public final class VirtualKeyboardLauncher {
         if (tryOpen(config)) {
             return;
         }
-        if ((System.currentTimeMillis() - pendingSince) > PENDING_TIMEOUT_MS) {
+        if ((monotonicNowMs() - pendingSince) > PENDING_TIMEOUT_MS) {
             pendingOpen = false;
             pendingSince = 0L;
         }
@@ -88,4 +88,13 @@ public final class VirtualKeyboardLauncher {
     private static boolean isEnabled(ControllerConfig config) {
         return config != null && config.virtualKeyboardEnabled;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

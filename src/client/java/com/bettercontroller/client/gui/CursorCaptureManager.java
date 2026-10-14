@@ -15,7 +15,7 @@ public final class CursorCaptureManager {
     private long lastControllerInputMs;
 
     public void noteControllerInput() {
-        lastControllerInputMs = System.currentTimeMillis();
+        lastControllerInputMs = monotonicNowMs();
     }
 
     public void sync(Minecraft client, boolean wantCapture) {
@@ -28,7 +28,7 @@ public final class CursorCaptureManager {
             captured = false;
             return;
         }
-        boolean withinWindow = (System.currentTimeMillis() - lastControllerInputMs) <= ACTIVE_WINDOW_MS;
+        boolean withinWindow = (monotonicNowMs() - lastControllerInputMs) <= ACTIVE_WINDOW_MS;
         boolean shouldCapture = wantCapture && withinWindow;
 
         if (shouldCapture && !captured) {
@@ -61,4 +61,13 @@ public final class CursorCaptureManager {
         }
         captured = false;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

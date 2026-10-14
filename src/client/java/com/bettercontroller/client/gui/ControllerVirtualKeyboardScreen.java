@@ -48,7 +48,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
     protected void init() {
         characterKeys.clear();
         lastFocusedWidget = null;
-        focusChangedMs = System.currentTimeMillis();
+        focusChangedMs = monotonicNowMs();
 
         int top = 58;
         top = addCharacterRow(new String[] {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}, top);
@@ -320,7 +320,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         int top = focusedWidget.getY() - 2;
         int width = focusedWidget.getWidth() + 4;
         int height = focusedWidget.getHeight() + 4;
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         double pulse = 0.5D + (0.5D * Math.sin(now * 0.016D));
         double settle = Math.min(1.0D, Math.max(0.0D, (now - focusChangedMs) / 180.0D));
         int grow = (int) Math.round((1.0D - settle) * 1.4D);
@@ -367,7 +367,7 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
         AbstractWidget currentFocused = focusedWidget();
         if (currentFocused != lastFocusedWidget) {
             lastFocusedWidget = currentFocused;
-            focusChangedMs = System.currentTimeMillis();
+            focusChangedMs = monotonicNowMs();
         }
     }
 
@@ -431,4 +431,13 @@ public final class ControllerVirtualKeyboardScreen extends Screen {
 
     private record CharacterKey(String baseToken, Button button) {
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

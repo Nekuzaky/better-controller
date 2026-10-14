@@ -50,7 +50,7 @@ public final class ControllerConfigManager {
             return load();
         }
 
-        long now = System.currentTimeMillis();
+        long now = monotonicNowMs();
         if (now - lastFileCheckMs < CHECK_INTERVAL_MS) {
             return config;
         }
@@ -291,4 +291,13 @@ public final class ControllerConfigManager {
         }
         return value;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }

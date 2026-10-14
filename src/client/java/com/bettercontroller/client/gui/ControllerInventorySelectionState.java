@@ -28,7 +28,7 @@ public final class ControllerInventorySelectionState {
             return;
         }
         if (trackedScreen != screen || selectedSlotId != slot.index) {
-            lastSelectionChangeMs = System.currentTimeMillis();
+            lastSelectionChangeMs = monotonicNowMs();
         }
         trackedScreen = screen;
         selectedSlotId = slot.index;
@@ -56,4 +56,13 @@ public final class ControllerInventorySelectionState {
         selectedSlotId = -1;
         lastSelectionChangeMs = 0L;
     }
+
+    /**
+     * Elapsed time comes off nanoTime: the wall clock is not monotonic, and an NTP correction
+     * stepping it mid-game would skew every interval measured against it.
+     */
+    private static long monotonicNowMs() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
 }
