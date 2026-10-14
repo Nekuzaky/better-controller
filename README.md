@@ -2,34 +2,49 @@
 
 <p align="center">
   <strong>Play Minecraft Java with any gamepad.</strong><br>
-  Lightweight, zero-allocation Fabric mod with analog look, full GUI navigation, creative double-tap fly and a virtual keyboard.
+  Lightweight, zero-allocation Forge mod with analog look, full GUI navigation, creative double-tap fly and a virtual keyboard.
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nekuzaky/BetterController/actions/workflows/ci.yml">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nekuzaky/BetterController/ci.yml?branch=main&label=CI&logo=github">
+  <a href="https://github.com/Nekuzaky/better-controller/actions/workflows/ci.yml">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nekuzaky/better-controller/ci.yml?branch=mc%2F1.12.2&label=CI&logo=github">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/releases/latest">
-    <img alt="Release" src="https://img.shields.io/github/v/release/Nekuzaky/BetterController?include_prereleases&sort=semver&label=release&color=blue">
+  <a href="https://github.com/Nekuzaky/better-controller/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/Nekuzaky/better-controller?include_prereleases&sort=semver&label=release&color=blue">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/releases">
-    <img alt="Downloads" src="https://img.shields.io/github/downloads/Nekuzaky/BetterController/total?color=brightgreen">
+  <a href="https://github.com/Nekuzaky/better-controller/releases">
+    <img alt="Downloads" src="https://img.shields.io/github/downloads/Nekuzaky/better-controller/total?color=brightgreen">
   </a>
-  <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-1.21.11-62b132?logo=minecraft&logoColor=white">
-  <img alt="Fabric" src="https://img.shields.io/badge/fabric-0.18.4-blueviolet">
-  <img alt="Java" src="https://img.shields.io/badge/java-21-orange?logo=openjdk&logoColor=white">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Nekuzaky/BetterController?color=blue"></a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/bettercontroller">
+    <img alt="CurseForge" src="https://img.shields.io/badge/curseforge-download-F16436?logo=curseforge&logoColor=white">
+  </a>
+  <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-1.12.2-62b132?logo=minecraft&logoColor=white">
+  <img alt="Forge" src="https://img.shields.io/badge/forge-14.23.5.2847-blueviolet">
+  <img alt="Java" src="https://img.shields.io/badge/java-8-orange?logo=openjdk&logoColor=white">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Nekuzaky/better-controller?color=blue"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nekuzaky/BetterController/issues">
-    <img alt="Issues" src="https://img.shields.io/github/issues/Nekuzaky/BetterController?color=informational">
+  <a href="https://github.com/Nekuzaky/better-controller/issues">
+    <img alt="Issues" src="https://img.shields.io/github/issues/Nekuzaky/better-controller?color=informational">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/pulls">
-    <img alt="Pull requests" src="https://img.shields.io/github/issues-pr/Nekuzaky/BetterController?color=informational">
+  <a href="https://github.com/Nekuzaky/better-controller/pulls">
+    <img alt="Pull requests" src="https://img.shields.io/github/issues-pr/Nekuzaky/better-controller?color=informational">
   </a>
-  <a href="https://github.com/Nekuzaky/BetterController/stargazers">
-    <img alt="Stars" src="https://img.shields.io/github/stars/Nekuzaky/BetterController?style=social">
+  <a href="https://github.com/Nekuzaky/better-controller/stargazers">
+    <img alt="Stars" src="https://img.shields.io/github/stars/Nekuzaky/better-controller?style=social">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/Nekuzaky">
+    <img alt="Buy Me a Coffee" src="https://img.shields.io/badge/buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=black">
+  </a>
+  <a href="https://www.patreon.com/Nekuzaky">
+    <img alt="Patreon" src="https://img.shields.io/badge/patreon-support-FF424D?logo=patreon&logoColor=white">
+  </a>
+  <a href="https://github.com/sponsors/Nekuzaky">
+    <img alt="GitHub Sponsors" src="https://img.shields.io/badge/sponsors-support-EA4AAA?logo=githubsponsors&logoColor=white">
   </a>
 </p>
 
@@ -45,27 +60,37 @@ stay small, predictable and allocation-free while doing it.
 ## Features
 
 - **Plug-and-play.** Auto-detects Xbox, PlayStation, Switch Pro and generic
-  XInput controllers, swaps glyphs accordingly, survives hot-disconnect.
-- **Analog everything.** Per-axis deadzone, anti-deadzone, response curve,
-  adaptive smoothing on the right stick.
-- **Full GUI navigation.** Inventories, chests, creative search, options,
-  world list, virtual keyboard for chat. Right stick scrolls scrollable
-  screens (creative inventory, world list).
-- **Creative double-tap fly.** The original toggle works — no synthetic
-  jump pulses fighting Minecraft's native detection.
-- **5-slider settings screen.** Movement deadzone, look X / Y sensitivity,
-  look speed multiplier, trigger threshold. Everything else in JSON.
-- **Debug overlay** (`F8`) showing raw axes, triggers, processed vectors,
-  pressed buttons.
-- **No vibration noise, no radial menu bloat.** Removed on purpose — see
-  [Why no rumble?](#why-no-rumble) below.
+  controllers, swaps glyphs accordingly, survives hot-disconnect.
+- **Analog everything.** Per-axis circular deadzone, anti-deadzone, response
+  curve, camera sampled every rendered frame.
+- **GUI navigation.** Buttons, sliders, inventories and containers (RB
+  shift-moves a stack, RT splits one), world / server / resource-pack /
+  language lists, with right-stick scrolling.
+- **Virtual keyboard** on any text field: chat, signs, anvils, world and
+  server names.
+- **HUD prompts and connection banners**, with glyphs for the detected pad.
+- **Debug overlay** (`F8`, rebindable) showing raw axes, triggers, processed
+  vectors, pressed buttons and the pad's GUID.
+- **Two instances, two pads.** Pin each game instance to one controller.
+
+### Compared to the Fabric versions
+
+1.12.2 is a Forge port of the same core. Not there yet: the in-game settings
+screen (everything is in the JSON), creative-inventory tab switching, and
+hiding the OS cursor while the pad drives a menu. Video Settings rows and the
+Controls key list are reachable only through their normal buttons.
 
 ## Install
 
-1. [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.21.11.
-2. [Fabric API](https://modrinth.com/mod/fabric-api) in `mods/`.
-3. `bettercontroller-<version>.jar` from the [latest release](https://github.com/Nekuzaky/BetterController/releases/latest) in `mods/`.
-4. Launch. Plug a controller. Done.
+1. [Minecraft Forge](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html)
+   14.23.5.2847 or newer for Minecraft 1.12.2.
+2. `bettercontroller-<version>+1.12.2.jar` in `mods/`, from either
+   [CurseForge](https://www.curseforge.com/minecraft/mc-mods/bettercontroller)
+   or the [GitHub releases](https://github.com/Nekuzaky/better-controller/releases).
+3. Launch. Plug a controller. Done.
+
+1.12.2 predates LWJGL 3, so the mod ships its own GLFW and loads it in an
+isolated classloader next to the game's LWJGL 2. Nothing else to install.
 
 ## Default bindings
 
@@ -95,22 +120,10 @@ tabs, RT/LT page, right stick scrolls.
 ## Configure
 
 The runtime config is at `config/bettercontroller.json` and reloads live
-within ~500 ms.
-
-The in-game settings screen
-(`Options → Controls → Controller Settings`, or the button on the pause
-menu) has the five sliders most users want:
-
-- Movement deadzone
-- Look sensitivity X
-- Look sensitivity Y
-- Look speed multiplier
-- Trigger threshold
-
-Everything else — response curve, smoothing, bindings, axes — lives in the
-JSON. See
+within ~500 ms. There is no settings screen on 1.12.2 yet: response curve,
+sensitivity, deadzones, bindings and axes all live in the JSON. See
 [`src/main/resources/bettercontroller.default.json`](src/main/resources/bettercontroller.default.json)
-for the full schema with comments.
+for the full schema.
 
 ### Rebinding
 
@@ -141,38 +154,34 @@ for the full schema with comments.
 | Snappier camera            | `lookSpeedMultiplier` 2.5–3.0                             |
 | Less stick drift           | `movementDeadzone` 0.14–0.18                              |
 | Softer center, fast outer  | `lookResponseCurve` `exponential_light`                   |
-| Faster menu navigation     | `menuInitialRepeatDelayMs` 90, `menuRepeatIntervalMs` 30  |
+| Faster menu navigation     | `menuInitialRepeatDelayMs` 200, `menuRepeatIntervalMs` 100 |
 | Slower triggers feel laggy | Lower `triggerThreshold` to 0.35                          |
 
 ## Architecture
 
 ```
-ControllerPoller
-     │  ControllerSnapshot
-     ▼
+GlfwBridge  (LWJGL 3 GLFW in its own classloader, next to the game's LWJGL 2)
+     │
+ControllerPoller ──► ControllerSnapshot
+     │
 InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
      │
-     ├──► MinecraftInputApplier      keybindings + analog vector
+     ├──► MinecraftInputApplier + ScreenExitGate   key bindings, analog movement
      │
-     └──► ControllerGuiNavigationHooks
-              │
-              ▼
-          GuiNavigationController
-              ├── SlotNavigator         (handled screens)
-              ├── WidgetNavigator       (clickable widgets)
-              ├── CreativeTabNavigator  (creative inventory tabs)
-              └── CursorCaptureManager  (OS cursor)
+     └──► BetterControllerEventHandler  (Forge client events)
+              ├── GuiScreenNavigator     buttons, sliders, text fields, lists
+              ├── ContainerNavigator     inventory / container slots
+              └── VirtualKeyboardOverlay
 ```
 
 ### Design constraints (NASA Power of Ten, adapted to Java)
 
 - **All functions stay under 60 lines.**
-- **Zero allocation in the steady-state tick loop.** `GameplayInputFrame` is
-  a single mutable instance, `input.movementVector` is mutated in place, and
-  `input.playerInput` is left to `KeyboardInput.tick` so Minecraft's native
-  rising-edge detection (used by creative double-tap fly) keeps working.
-- **No reflection.** `setSelectedTab` on the creative inventory is reached
-  through a Mixin Accessor / Invoker.
+- **Zero allocation in the steady-state tick loop.**
+- **No mixins.** Everything hangs off Forge events. Vanilla's protected GUI
+  members are reached through `GuiReflection`, which looks each one up by both
+  its MCP and SRG name and degrades with a single warning — a development-name
+  lookup alone works in `runClient` and silently fails in an installed game.
 - **All loops bounded.** Fixed-size snapshots, finite widget / slot lists.
 - **Validate at boundaries**, not in hot paths.
 
@@ -188,32 +197,36 @@ InputTranslator ───► GameplayInputFrame  (mutable, reused per tick)
 ./gradlew runClient
 ```
 
-Artifacts land in `build/libs/bettercontroller-<version>.jar`.
+Artifacts land in `build/libs/bettercontroller-<version>+1.12.2.jar`.
 
-Requires JDK 21 (Temurin, JBR, GraalVM — anything Java 21).
+Requires JDK 8. ForgeGradle 2.3 — the only toolchain that still builds
+1.12.2 — pins Gradle 4.10.3 and Java 8, which is also what the game runs on.
+Set `JAVA_HOME` to a JDK 8 before running the wrapper.
 
 ## Branching model
 
-The repo tracks several Minecraft versions in parallel:
+One branch per Minecraft version. Each is complete on its own: it builds,
+tests, releases and gets patched independently.
 
-| Branch              | Tracks                                  | Status      |
-|---------------------|-----------------------------------------|-------------|
-| `main`              | Latest supported Minecraft version      | stable      |
-| `develop`           | Active development for the latest version | active    |
-| `fabric-1.21.11`    | Frozen archive — Fabric 0.18.4, MC 1.21.11 | maintenance |
+| Branch       | Minecraft | Loader | Players need | Build JDK |
+|--------------|-----------|--------|--------------|-----------|
+| `main`       | 26.2      | Fabric | Java 25      | 25        |
+| `mc/1.21.11` | 1.21.11   | Fabric | Java 21      | 25        |
+| `mc/1.20.1`  | 1.20.1    | Fabric | Java 17      | 25        |
+| `mc/1.12.2`  | 1.12.2    | Forge  | Java 8       | 8         |
 
-When Minecraft cuts a new major (e.g. 26.x), `main` migrates to it and the
-previous line gets a `fabric-<version>` branch so old releases stay
-buildable and patchable. To build a specific version, check out the
-matching branch:
+`main` always tracks the newest supported Minecraft. When a new version is
+ported, the previous one moves to its own `mc/<version>` branch.
 
 ```bash
-git checkout fabric-1.21.11
+git checkout mc/1.21.11
 ./gradlew build
 ```
 
-Tags (`v0.1.0`, etc.) always point to the commit that produced a published
-release, regardless of which version branch it lives on.
+Releases are tagged `v<mod>+<minecraft>` (e.g. `v0.3.0+1.21.11`) and the JAR
+is named the same way, so every line can ship the same mod version without
+collisions. The release workflow refuses a tag whose version or Minecraft
+version doesn't match the branch it was pushed from.
 
 ## FAQ
 
@@ -239,7 +252,7 @@ controller. Same UX, ~400 fewer lines of config.
 
 ### My favourite controller isn't detected.
 
-Open an [issue](https://github.com/Nekuzaky/BetterController/issues/new?template=bug_report.yml)
+Open an [issue](https://github.com/Nekuzaky/better-controller/issues/new?template=bug_report.yml)
 with the GLFW name and GUID — `F8` debug overlay shows both. Detection is
 heuristic and easy to extend.
 
@@ -247,12 +260,26 @@ heuristic and easy to extend.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The TL;DR:
 
-- Branch from `develop`, target `develop` in your PR.
+- Branch from the version branch you're fixing (`main` for the newest
+  Minecraft) and target it in your PR.
 - One concern per PR.
 - Test with a real controller and describe what you tested.
 
 Read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and
 [SECURITY.md](SECURITY.md) for the rest.
+
+## Support
+
+BetterController is free and MIT-licensed, and it stays that way. If it made
+your gamepad usable and you want to help cover the time spent chasing
+Minecraft version bumps and controller quirks:
+
+- [**Buy Me a Coffee**](https://buymeacoffee.com/Nekuzaky) — one-off, no account needed.
+- [**Patreon**](https://www.patreon.com/Nekuzaky) — monthly, for build previews and version-bump notes.
+- [**GitHub Sponsors**](https://github.com/sponsors/Nekuzaky) — same thing, billed through GitHub.
+
+Nothing in the mod is paywalled and nothing ever will be. Starring the repo
+and filing good bug reports helps just as much.
 
 ## License
 
