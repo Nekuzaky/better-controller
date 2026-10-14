@@ -10,10 +10,12 @@ import java.util.Map;
 public final class ControllerConfig {
     /** The schema that changed the menu repeat defaults; see {@link #migrateFrom}. */
     static final int MENU_TIMING_SCHEMA = 11;
+    static final int PICK_BLOCK_SCHEMA = 12;
     static final int LEGACY_MENU_INITIAL_REPEAT_DELAY_MS = 140;
     static final int LEGACY_MENU_REPEAT_INTERVAL_MS = 55;
+    static final String LEGACY_PICK_BLOCK_BUTTON = "RB";
 
-    public int schemaVersion = MENU_TIMING_SCHEMA;
+    public int schemaVersion = PICK_BLOCK_SCHEMA;
     public boolean autoActivateOnController = true;
 
     /**
@@ -113,15 +115,36 @@ public final class ControllerConfig {
      * the default - and is moved to the new one. Anything else was set on purpose and is kept.
      */
     public void migrateFrom(int loadedSchemaVersion) {
-        if (loadedSchemaVersion >= MENU_TIMING_SCHEMA) {
-            return;
-        }
-        if (menuInitialRepeatDelayMs == LEGACY_MENU_INITIAL_REPEAT_DELAY_MS
+        if (loadedSchemaVersion < MENU_TIMING_SCHEMA
+            && menuInitialRepeatDelayMs == LEGACY_MENU_INITIAL_REPEAT_DELAY_MS
             && menuRepeatIntervalMs == LEGACY_MENU_REPEAT_INTERVAL_MS) {
             ControllerConfig fallback = createDefault();
             menuInitialRepeatDelayMs = fallback.menuInitialRepeatDelayMs;
             menuRepeatIntervalMs = fallback.menuRepeatIntervalMs;
         }
+        if (loadedSchemaVersion < PICK_BLOCK_SCHEMA) {
+            movePickBlockOffTheHotbarBumper();
+        }
+    }
+
+    /**
+     * Schema 12 moved pick_block off RB. RB was bound to both pick_block and hotbar_next, and
+     * nothing arbitrates between two actions on one button, so a press did both: it picked the
+     * block and then advanced a slot, leaving the player holding a different slot than the one
+     * the pick had just filled. A file still carrying exactly the old single binding never chose
+     * it - that was the default - and is moved. Anything else was set on purpose and is kept.
+     */
+    private void movePickBlockOffTheHotbarBumper() {
+        if (bindings == null) {
+            return;
+        }
+        List<String> pickBlock = bindings.get("pick_block");
+        if (pickBlock == null
+            || pickBlock.size() != 1
+            || !LEGACY_PICK_BLOCK_BUTTON.equalsIgnoreCase(pickBlock.get(0))) {
+            return;
+        }
+        bindings.put("pick_block", new ArrayList<>(createDefault().bindings.get("pick_block")));
     }
 
     public ResolvedLayout resolveLayout() {
@@ -155,7 +178,7 @@ public final class ControllerConfig {
             entry("toggle_perspective", "DPAD_DOWN"),
             entry("pause", "START"),
             entry("player_list", "BACK"),
-            entry("pick_block", "RB"),
+            entry("pick_block", "DPAD_LEFT"),
             entry("hotbar_next", "RB"),
             entry("hotbar_previous", "LB"),
             entry("hotbar_1"),
